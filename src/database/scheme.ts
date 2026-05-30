@@ -1,26 +1,24 @@
-import { pgTable, uuid, varchar, text, timestamp, inet } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, inet, pgEnum } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-export enum Roles {
-    USER = 'user',
-    ADMIN = 'admin'
-}
+export const Roles = pgEnum('role', ['user', 'admin']);
 
 export const users = pgTable('users', {
     id: uuid('id').primaryKey().defaultRandom(),
     username: varchar('username', {length: 25}).notNull().unique(),
     password: varchar('password', {length: 255}).notNull().unique(),
-    role: varchar('role', {length: 25}).notNull().default(Roles.USER),
+    role: Roles('role').notNull().default('user'),
     description: text('description'),
     vibe: varchar('vibe', {length: 50}),
     pfp_url: varchar('pfp_url', {length: 255}),
     created_at: timestamp().defaultNow().notNull()
 })
 
+export const RoomState = pgEnum('room_state', ['active', 'checkout', 'banned']);
 export const rooms = pgTable('rooms', {
     id: uuid('id').primaryKey().defaultRandom(),
     creatorId: uuid('creator_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-    status: varchar('status', { length: 50 }).notNull(),
+    status: RoomState('room_state').default('checkout'),
     title: varchar('title', { length: 255 }).notNull(),
     topic: varchar('topic', { length: 255 }),
     description: text('description'),
