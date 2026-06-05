@@ -23,7 +23,7 @@ export const rooms = pgTable('rooms', {
     topic: varchar('topic', { length: 255 }),
     description: text('description'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
 });
 
 export const messages = pgTable('messages', {
