@@ -11,12 +11,12 @@ export class RoomsRepository {
         private readonly db: PostgresJsDatabase<typeof scheme>
     ) {}
 
-    async create(creatorId: string, title: string, topic?: string, description?: string) {
+    async create(data: { creatorId: string; title: string; topic?: string; description?: string }) {
         const [newRoom] = await this.db.insert(scheme.rooms).values({
-            creatorId,
-            title,
-            topic,
-            description,
+            creatorId: data.creatorId,
+            title: data.title,
+            topic: data.topic,
+            description: data.description,
         }).returning();
 
         return newRoom;
@@ -43,7 +43,7 @@ export class RoomsRepository {
 
     async updateStatus(roomId: string, newStatus: 'active' | 'checkout' | 'banned') {
         const [updatedRoom] = await this.db.update(scheme.rooms)
-            .set({ status: newStatus, updatedAt: new Date() })
+            .set({ status: newStatus })
             .where(eq(scheme.rooms.id, roomId))
             .returning();
 

@@ -5,8 +5,8 @@ import { RoomsRepository } from "./rooms.repository";
 export class RoomService {
     constructor(private readonly roomsRepository: RoomsRepository) {}
 
-    async createRoom(creatorId: string, title: string, topic?: string, description?: string) {
-        return this.roomsRepository.create(creatorId, title, topic, description);
+    async createRoom(data: { creatorId: string; title: string; topic?: string; description?: string }) {
+        return this.roomsRepository.create(data);
     }
 
     async getLobbyRooms(){
