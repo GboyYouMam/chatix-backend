@@ -22,4 +22,13 @@ export class UsersRepository {
 
         return newUser;
     }
+
+    async resetPassword(userId: string, newPasswordHash: string) {
+        const [updatedUser] = await this.db.update(scheme.users)
+            .set({ password: newPasswordHash })
+            .where(eq(scheme.users.id, userId))
+            .returning();
+
+        return updatedUser;
+    }
 }
