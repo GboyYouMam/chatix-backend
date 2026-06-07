@@ -40,12 +40,23 @@ export class StorageService {
         }
     }
 
-    async uploadAvatar(file: Express.Multer.File, userId: string): Promise<string> {
+    private buildFileUrl(fileName: string): string {
+        const publicUrl = this.configService.getOrThrow<string>('MINIO_PUBLIC_URL');
+        return `${publicUrl}/${this.bucketName}/${fileName}`;
+    }
+
+    async uploadFile(file: Express.Multer.File, userId: string): Promise<{
+        objectName: string;
+        bucket: string;
+        url: string;
+        etag: string;
+        versionId?: string
+    }> {
         try {
             const extension = file.originalname.split('.').pop();
             const fileName = `${userId}-${Date.now()}.${extension}`;
 
-            await this.minioClient.putObject(
+            const result = await this.minioClient.putObject(
                 this.bucketName,
                 fileName,
                 file.buffer,
@@ -53,10 +64,15 @@ export class StorageService {
                 { 'Content-Type': file.mimetype }
             );
 
-            const endPoint = this.configService.get('MINIO_ENDPOINT');
-            const port = this.configService.get('MINIO_PORT');
+            const url = this.buildFileUrl(fileName);
 
-            return `http://${endPoint}:${port}/${this.bucketName}/${fileName}`;
+            return {
+                objectName: fileName,
+                bucket: this.bucketName,
+                url: url,
+                etag: result.etag,
+                versionId: result.versionId as string || undefined,
+            };
         } catch (error) {
             this.logger.error('error while uploading to MinIO', error);
             throw new InternalServerErrorException('Cannot save this file lmao');
