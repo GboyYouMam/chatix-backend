@@ -2,6 +2,8 @@ import { Controller, Post, Get, Param, Body, UseGuards, Ip } from '@nestjs/commo
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { RequestUser } from '../auth/dto/request-user.dto';
+import { CreateMessageDto } from "./dto/create-message.dto";
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -10,8 +12,8 @@ export class MessagesController {
 
     @Post()
     async createMessage(
-        @Body() body: { roomId: string; cipherText: string },
-        @CurrentUser() user: any,
+        @Body() body: CreateMessageDto,
+        @CurrentUser() user: RequestUser,
         @Ip() ip: string
     ) {
         return this.messagesService.sendMessage(
