@@ -22,7 +22,7 @@ export class StorageService {
     async onModuleInit() {
         const exists = await this.minioClient.bucketExists(this.bucketName);
         if (!exists) {
-            await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
+            await this.minioClient.makeBucket(this.bucketName, this.configService.getOrThrow<string>('MINIO_REGION'));
 
             const policy = {
                 Version: '2012-10-17',
