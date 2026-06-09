@@ -10,13 +10,13 @@ export class StorageService {
 
     constructor(private configService: ConfigService) {
         this.minioClient = new Minio.Client({
-            endPoint: this.configService.get<string>('MINIO_ENDPOINT') || '127.0.0.1',
-            port: Number(this.configService.get<number>('MINIO_PORT')) || 9000,
+            endPoint: this.configService.getOrThrow<string>('MINIO_ENDPOINT'),
+            port: Number(this.configService.getOrThrow<number>('MINIO_PORT')),
             useSSL: false,
-            accessKey: this.configService.get<string>('MINIO_ACCESS_KEY') as string,
-            secretKey: this.configService.get<string>('MINIO_SECRET_KEY') as string,
+            accessKey: this.configService.getOrThrow<string>('MINIO_ACCESS_KEY'),
+            secretKey: this.configService.getOrThrow<string>('MINIO_SECRET_KEY'),
         });
-        this.bucketName = this.configService.get<string>('MINIO_BUCKET_NAME') || 'avatars';
+        this.bucketName = this.configService.getOrThrow<string>('MINIO_BUCKET_NAME');
     }
 
     async onModuleInit() {
