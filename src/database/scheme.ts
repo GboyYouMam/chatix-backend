@@ -15,10 +15,12 @@ export const users = pgTable('users', {
 })
 
 export const RoomState = pgEnum('room_state', ['active', 'checkout', 'banned']);
+export const RoomPublicity = pgEnum('room_publicity', ['public', 'private']);
 export const rooms = pgTable('rooms', {
     id: uuid('id').primaryKey().defaultRandom(),
     creatorId: uuid('creator_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     status: RoomState('room_state').default('checkout'),
+    publicity: RoomPublicity('room_publicity').default('public'),
     title: varchar('title', { length: 255 }).notNull(),
     topic: varchar('topic', { length: 255 }),
     description: text('description'),
