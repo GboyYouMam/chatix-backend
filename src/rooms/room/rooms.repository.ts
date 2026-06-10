@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.module';
 import * as scheme from '../../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import {CreateRoomDTO} from "./dto/create-room.dto";
 
 @Injectable()
 export class RoomsRepository {
@@ -11,12 +12,13 @@ export class RoomsRepository {
         private readonly db: PostgresJsDatabase<typeof scheme>
     ) {}
 
-    async create(data: { creatorId: string; title: string; topic?: string; description?: string }) {
+    async create(data: { creatorId: string; title: string; topic?: string; description?: string; publicity: 'public' | 'private'; }) {
         const [newRoom] = await this.db.insert(scheme.rooms).values({
             creatorId: data.creatorId,
             title: data.title,
             topic: data.topic,
             description: data.description,
+            publicity: data.publicity,
         }).returning();
 
         return newRoom;
@@ -41,12 +43,52 @@ export class RoomsRepository {
         });
     }
 
+    async findRoomsByPublicity(publicity: 'public' | 'private') {
+        return this.db.query.rooms.findMany({
+            where: eq(scheme.rooms.publicity, publicity),
+            orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
+            with: {
+                creator: {
+                    columns: { id: true, username: true, pfp_url: true }
+                }
+            }
+        });
+    }
+
     async updateStatus(roomId: string, newStatus: 'active' | 'checkout' | 'banned') {
         const [updatedRoom] = await this.db.update(scheme.rooms)
             .set({ status: newStatus })
             .where(eq(scheme.rooms.id, roomId))
             .returning();
 
+        return updatedRoom;
+    }
+
+    async deleteRoom(roomId: string) {
+        const [deletedRoom] = await this.db.delete(scheme.rooms)
+            .where(eq(scheme.rooms.id, roomId))
+            .returning();
+        return deletedRoom;
+    }
+
+    async updatePublicity(roomId: string, newPublicity: 'public' | 'private') {
+        const [updatedRoom] = await this.db.update(scheme.rooms)
+            .set({ publicity: newPublicity })
+            .where(eq(scheme.rooms.id, roomId))
+            .returning();
+        return updatedRoom;
+    }
+
+    async updateRoom(roomId: string, data: Partial<CreateRoomDTO>) {
+        const [updatedRoom] = await this.db.update(scheme.rooms)
+            .set({
+                title: data.title,
+                topic: data.topic,
+                description: data.description,
+                publicity: data.publicity
+            })
+            .where(eq(scheme.rooms.id, roomId))
+            .returning();
         return updatedRoom;
     }
 }

@@ -1,7 +1,9 @@
-export class CreateRoomDto {
+export interface CreateRoomDTO {
+    creatorId: string;
     title: string;
     topic?: string;
     description?: string;
+    publicity: 'public' | 'private';
 }
 
 export interface RequestUser {
