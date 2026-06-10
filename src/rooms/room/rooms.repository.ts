@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.module';
 import * as scheme from '../../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -11,6 +11,12 @@ export class RoomsRepository {
         @Inject(DB_CONNECTION)
         private readonly db: PostgresJsDatabase<typeof scheme>
     ) {}
+
+    async getUserValidationData(userId: string) {
+        return this.db.query.users.findFirst({
+            where: eq(scheme.users.id, userId),
+        });
+    }
 
     async create(data: { creatorId: string; title: string; topic?: string; description?: string; publicity: 'public' | 'private'; }) {
         const [newRoom] = await this.db.insert(scheme.rooms).values({
@@ -46,6 +52,21 @@ export class RoomsRepository {
     async findRoomsByPublicity(publicity: 'public' | 'private') {
         return this.db.query.rooms.findMany({
             where: eq(scheme.rooms.publicity, publicity),
+            orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
+            with: {
+                creator: {
+                    columns: { id: true, username: true, pfp_url: true }
+                }
+            }
+        });
+    }
+
+    async findLobbyRooms() {
+        return this.db.query.rooms.findMany({
+            where: and(
+                eq(scheme.rooms.status, 'active'),
+                eq(scheme.rooms.publicity, 'public')
+            ),
             orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
             with: {
                 creator: {
