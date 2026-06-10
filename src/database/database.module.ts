@@ -1,24 +1,39 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, OnModuleDestroy, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './scheme.js';
-import * as dotenv from 'dotenv';
 
-dotenv.config();
-
-export const DB_CONNECTION = 'DB_CONNECTION';
+export const DB_CONNECTION = Symbol('DB_CONNECTION');
+export const PG_CONNECTION = Symbol('PG_CONNECTION');
 
 @Global()
 @Module({
     providers: [
         {
+            provide: PG_CONNECTION,
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => {
+                const dbUrl = configService.get<string>('DATABASE_URL');
+                return postgres(dbUrl as string);
+            },
+        },
+        {
             provide: DB_CONNECTION,
-            useFactory: async () => {
-                const queryClient = postgres(process.env.DATABASE_URL as string);
-                return drizzle(queryClient, { schema });
+            inject: [PG_CONNECTION],
+            useFactory: (connection: postgres.Sql<{}>) => {
+                return drizzle(connection, { schema });
             },
         },
     ],
     exports: [DB_CONNECTION],
 })
-export class DatabaseModule {}
+export class DatabaseModule implements OnModuleDestroy {
+    constructor(@Inject(PG_CONNECTION) private readonly connection: postgres.Sql<{}>) {}
+
+    async onModuleDestroy() {
+        if (this.connection) {
+            await this.connection.end();
+        }
+    }
+}
