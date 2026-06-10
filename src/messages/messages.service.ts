@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
+import { RequestUser } from "./dto/create-message.dto";
 
 @Injectable()
 export class MessagesService {
@@ -10,6 +11,14 @@ export class MessagesService {
     }
 
     async getRoomHistory(roomId: string) {
-        return this.messagesRepository.findByRoomId(roomId);
+        return this.messagesRepository.getRoomHistory(roomId);
+    }
+
+    async deleteMessage(messageId: string, user: RequestUser) {
+        const deletedMessage = await this.messagesRepository.deleteMessage(messageId);
+
+        if (!deletedMessage) throw new NotFoundException('Message not found');
+
+        return { message: 'ELIMINATED BY KILLSQUAD', deletedMessage };
     }
 }
