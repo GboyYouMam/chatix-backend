@@ -1,9 +1,9 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Ip } from '@nestjs/common';
+import {Controller, Post, Get, Param, Body, UseGuards, Ip, Delete} from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { RequestUser } from '../auth/dto/request-user.dto';
-import { CreateMessageDto } from "./dto/create-message.dto";
+import { type RequestUser } from './dto/create-message.dto';
+import { CreateMessageDTO } from "./dto/create-message.dto";
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -12,7 +12,7 @@ export class MessagesController {
 
     @Post()
     async createMessage(
-        @Body() body: CreateMessageDto,
+        @Body() body: CreateMessageDTO,
         @CurrentUser() user: RequestUser,
         @Ip() ip: string
     ) {
@@ -27,5 +27,13 @@ export class MessagesController {
     @Get(':roomId')
     async getHistory(@Param('roomId') roomId: string) {
         return this.messagesService.getRoomHistory(roomId);
+    }
+
+    @Delete(':id')
+    async deleteMessage(
+        @Param('id') id: string,
+        @CurrentUser() user: RequestUser
+    ) {
+        return this.messagesService.deleteMessage(id, user);
     }
 }
