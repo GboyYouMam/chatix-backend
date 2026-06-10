@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { type RequestUser } from './dto/create-message.dto';
 import { CreateMessageDTO } from "./dto/create-message.dto";
+import {AdminGuard} from "../auth/admin.guard";
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -29,6 +30,7 @@ export class MessagesController {
         return this.messagesService.getRoomHistory(roomId);
     }
 
+    @UseGuards(AdminGuard)
     @Delete(':id')
     async deleteMessage(
         @Param('id') id: string,

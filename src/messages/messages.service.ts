@@ -1,6 +1,6 @@
 import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
-import {RequestUser} from "./dto/create-message.dto";
+import { RequestUser } from "./dto/create-message.dto";
 
 @Injectable()
 export class MessagesService {
@@ -15,9 +15,6 @@ export class MessagesService {
     }
 
     async deleteMessage(messageId: string, user: RequestUser) {
-        if( user.role !== 'admin' )
-            throw new ForbiddenException('Hell nah u`r not an admin tf are u doin');
-
         const deletedMessage = await this.messagesRepository.deleteMessage(messageId);
 
         if (!deletedMessage) throw new NotFoundException('Message not found');
