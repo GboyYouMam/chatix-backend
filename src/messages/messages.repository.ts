@@ -1,8 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import {Injectable, Inject, ForbiddenException, NotFoundException} from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { RequestUser } from "./dto/create-message.dto";
 
 @Injectable()
 export class MessagesRepository {
@@ -11,6 +12,17 @@ export class MessagesRepository {
         private readonly db: PostgresJsDatabase<typeof scheme>
     ) {}
 
+    async getUserForValidation(userId: string) {
+        return this.db.query.users.findFirst({
+            where: eq(scheme.users.id, userId),
+        });
+    }
+
+    async getRoomForValidation(roomId: string) {
+        return this.db.query.rooms.findFirst({
+            where: eq(scheme.rooms.id, roomId),
+        });
+    }
     async create(roomId: string, authorId: string, cipherText: string, ipAddress?: string) {
         const [newMessage] = await this.db.insert(scheme.messages).values({
             roomId,
@@ -22,7 +34,7 @@ export class MessagesRepository {
         return newMessage;
     }
 
-    async findByRoomId(roomId: string) {
+    async getRoomHistory(roomId: string) {
         return this.db.query.messages.findMany({
             where: eq(scheme.messages.roomId, roomId),
             orderBy: (messages, { asc }) => [asc(messages.createdAt)],
@@ -32,9 +44,24 @@ export class MessagesRepository {
                         id: true,
                         username: true,
                         pfp_url: true,
+                        forcedTitle: true,
                     }
                 }
             }
         });
+    }
+
+    async findById(id: string) {
+        return this.db.query.messages.findFirst({
+            where: eq(scheme.messages.id, id),
+        });
+    }
+
+    async deleteMessage(messageId: string) {
+        const [deletedMessage] = await this.db.delete(scheme.messages)
+            .where(eq(scheme.messages.id, messageId))
+            .returning();
+
+        return deletedMessage;
     }
 }
