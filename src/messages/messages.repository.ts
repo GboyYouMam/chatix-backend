@@ -12,6 +12,17 @@ export class MessagesRepository {
         private readonly db: PostgresJsDatabase<typeof scheme>
     ) {}
 
+    async getUserForValidation(userId: string) {
+        return this.db.query.users.findFirst({
+            where: eq(scheme.users.id, userId),
+        });
+    }
+
+    async getRoomForValidation(roomId: string) {
+        return this.db.query.rooms.findFirst({
+            where: eq(scheme.rooms.id, roomId),
+        });
+    }
     async create(roomId: string, authorId: string, cipherText: string, ipAddress?: string) {
         const [newMessage] = await this.db.insert(scheme.messages).values({
             roomId,
@@ -33,6 +44,7 @@ export class MessagesRepository {
                         id: true,
                         username: true,
                         pfp_url: true,
+                        forcedTitle: true,
                     }
                 }
             }
