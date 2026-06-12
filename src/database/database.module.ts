@@ -14,7 +14,7 @@ export const PG_CONNECTION = Symbol('PG_CONNECTION');
             provide: PG_CONNECTION,
             inject: [ConfigService],
             useFactory: (configService: ConfigService) => {
-                const dbUrl = configService.get<string>('DATABASE_URL');
+                const dbUrl = configService.getOrThrow<string>('DATABASE_URL');
                 return postgres(dbUrl as string);
             },
         },
