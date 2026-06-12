@@ -5,6 +5,7 @@ import { CurrentUser } from '../../auth/current-user.decorator';
 import { type RequestUser } from './dto/create-room.dto';
 import { type CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
+import {UpdateRoomDTO} from "./dto/update-room.dto";
 
 @Controller('rooms')
 export class RoomsController {
@@ -38,7 +39,7 @@ export class RoomsController {
     @Patch(':id')
     async updateRoom(
         @Param('id') id: string,
-        @Body() body: Partial<CreateRoomDTO>,
+        @Body() body: UpdateRoomDTO,
         @CurrentUser() user: RequestUser
     ) {
         return this.roomsService.updateRoom(id, user.userId, body);
