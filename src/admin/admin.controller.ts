@@ -3,6 +3,7 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import * as scheme from '../database/scheme';
+import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
 
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller('admin')
@@ -25,8 +26,17 @@ export class AdminController {
     @Patch('users/:id/modifiers')
     async updateUserModifiers(
         @Param('id') id: string,
-        @Body() body: Partial<typeof scheme.users.$inferInsert>
+        @Body() body: UpdateUserModifiersDTO,
     ) {
-        return this.adminService.updateModifiers(id, body);
+        const modifiersToApply = {
+            ...body,
+            bannedUntil: body.bannedUntil ? new Date(body.bannedUntil) : undefined,
+            yapCooldown: body.yapCooldown ? new Date(body.yapCooldown) : undefined,
+        };
+
+
+        Object.keys(modifiersToApply).forEach(key => modifiersToApply[key] === undefined && delete modifiersToApply[key]);
+
+        return this.adminService.updateModifiers(id, modifiersToApply);
     }
 }
