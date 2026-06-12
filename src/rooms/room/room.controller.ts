@@ -58,7 +58,7 @@ export class RoomsController {
     async updateRoomPublicity(
         @Param('id') id: string,
         @Body('publicity') publicity: 'public' | 'private',
-        @CurrentUser() user: RequestUser // <-- Дістаємо юзера
+        @CurrentUser() user: RequestUser
     ) {
         return this.roomsService.updateRoomPublicity(id, user.userId, publicity);
     }

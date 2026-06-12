@@ -1,6 +1,6 @@
 import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
 import { RoomsRepository } from "./rooms.repository";
-import {CreateRoomDTO} from "./dto/create-room.dto";
+import { CreateRoomDTO } from "./dto/create-room.dto";
 
 @Injectable()
 export class RoomService {
