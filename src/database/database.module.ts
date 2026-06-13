@@ -1,5 +1,5 @@
 import { Module, Global, OnModuleDestroy, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './scheme.js';
@@ -9,6 +9,7 @@ export const PG_CONNECTION = Symbol('PG_CONNECTION');
 
 @Global()
 @Module({
+    imports: [ConfigModule],
     providers: [
         {
             provide: PG_CONNECTION,

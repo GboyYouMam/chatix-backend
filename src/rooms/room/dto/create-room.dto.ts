@@ -1,4 +1,4 @@
-import {IsNotEmpty, IsOptional, IsString, MaxLength} from "class-validator";
+import {IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength} from "class-validator";
 
 export class CreateRoomDTO {
     creatorId: string;
@@ -17,7 +17,7 @@ export class CreateRoomDTO {
     @IsOptional()
     description?: string;
 
-    @IsString({ message: 'Publicity must be a string' })
+    @IsEnum(['public', 'private'], { message: 'Publicity must be strictly public or private lmao' })
     @IsNotEmpty({ message: 'Publicity must be specified' })
     publicity: 'public' | 'private';
 }

@@ -76,7 +76,7 @@ export class RoomsRepository {
         });
     }
 
-    async updateStatus(roomId: string, newStatus: 'active' | 'checkout' | 'banned') {
+    async updateStatus(roomId: string, newStatus: 'active' | 'checkout' | 'banned' | 'quarantined') {
         const [updatedRoom] = await this.db.update(scheme.rooms)
             .set({ status: newStatus })
             .where(eq(scheme.rooms.id, roomId))
