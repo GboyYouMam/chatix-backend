@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {Controller, Get, Post, Body, UseGuards, UseInterceptors, UploadedFile, Param} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { StorageService } from '../storage/storage.service';
@@ -20,6 +20,11 @@ export class UsersController {
         return this.usersService.getUserProfile(user.userId);
     }
 
+    @Get('profile/:username')
+    async getUserByUsername(@Param('username') username: string) {
+        return this.usersService.findByUsername(username);
+    }
+
     @Post('update')
     @UseInterceptors(FileInterceptor('file'))
     async updateProfile(
@@ -28,7 +33,6 @@ export class UsersController {
         @UploadedFile() file?: Express.Multer.File
     ) {
         const updatePayload: any = { ...body };
-
         if (file) {
             const fileData = await this.storageService.uploadFile(file, user.userId);
             updatePayload.pfp_url = fileData.url;
@@ -40,5 +44,10 @@ export class UsersController {
             message: 'Chud successfully ascended and changed profile',
             user: updatedUser
         };
+    }
+
+    @Post('farm-aura')
+    async farmAura(@CurrentUser() user: RequestUser) {
+        return this.usersService.auraFarming(user.userId);
     }
 }

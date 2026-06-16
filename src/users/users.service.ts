@@ -41,4 +41,32 @@ export class UsersService {
 
         return updatedUser;
     }
+
+    async findByUsername(username: string) {
+        const user = await this.usersRepository.findByUsername(username);
+
+        if (!user) {
+            throw new NotFoundException('This user not found ughhhh');
+        }
+        const { password, ...safeUser } = user;
+        return safeUser;
+    }
+
+    async auraFarming(userId: string) {
+        const user = await this.usersRepository.findById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const newAura = Number(user.aura) + 1;
+
+        const updatedUser = await this.usersRepository.updateProfile(userId, {
+            aura: newAura,
+        } as any);
+
+        return {
+            aura: newAura,
+            message: "aura farmed"
+        };
+    }
 }
