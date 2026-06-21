@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, inet, pgEnum, integer, boolean } from 'drizzle-orm/pg-core';
+import {pgTable, uuid, varchar, text, timestamp, inet, pgEnum, integer, boolean, primaryKey} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import {iterator} from "rxjs/internal/symbol/iterator";
 
@@ -39,6 +39,7 @@ export const rooms = pgTable('rooms', {
     title: varchar('title', { length: 255 }).notNull(),
     topic: varchar('topic', { length: 255 }),
     description: text('description'),
+    password: varchar('password', { length: 255 }),
     //fun
     quarantineReason: text('quarantine_reason'),
     quarantinedUntil: timestamp('quarantined_until'),
@@ -70,3 +71,13 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     author: one(users, { fields: [messages.authorId], references: [users.id] }),
     room: one(rooms, { fields: [messages.roomId], references: [rooms.id] }),
 }));
+
+export const roomAccesses = pgTable('room_accesses', {
+    roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    grantedAt: timestamp('granted_at').defaultNow().notNull(),
+}, (table) => {
+    return {
+        pk: primaryKey({ columns: [table.roomId, table.userId] })
+    };
+});

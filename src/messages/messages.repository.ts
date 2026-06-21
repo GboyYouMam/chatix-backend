@@ -31,7 +31,19 @@ export class MessagesRepository {
             ipAddress,
         }).returning();
 
-        return newMessage;
+        return this.db.query.messages.findFirst({
+            where: eq(scheme.messages.id, newMessage.id),
+            with: {
+                author: {
+                    columns: {
+                        id: true,
+                        username: true,
+                        pfp_url: true,
+                        forcedTitle: true,
+                    }
+                }
+            }
+        });
     }
 
     async getRoomHistory(roomId: string) {
@@ -45,6 +57,7 @@ export class MessagesRepository {
                         username: true,
                         pfp_url: true,
                         forcedTitle: true,
+                        isMogged: true,
                     }
                 }
             }

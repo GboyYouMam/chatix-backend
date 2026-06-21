@@ -70,4 +70,35 @@ export class RoomService {
         await this.getRoomsDetails(roomId);
         return this.roomsRepository.updateStatus(roomId, newStatus);
     }
+
+    async joinPrivateRoom(roomId: string, userId: string, passwordInput: string) {
+        const room = await this.roomsRepository.findById(roomId);
+        if (!room) throw new NotFoundException('Room dropped dead');
+        if (room.publicity !== 'private') {
+            throw new ForbiddenException('Bro this room is public, just go in directly');
+        }
+
+        const hasAccess = await this.roomsRepository.checkAccess(roomId, userId);
+        if (hasAccess) return { success: true, message: 'Already inside' };
+
+        if (room.password !== passwordInput) {
+            throw new ForbiddenException('Wrong password. Get lost lmao.');
+        }
+
+        await this.roomsRepository.grantAccess(roomId, userId);
+        return { success: true, message: 'ACCESS GRANTED. Welcome to the something PRIVATE... like an ISLAND of some close friends of US president.' };
+    }
+
+    async findRoomByName(roomName: string) {
+        const room = await this.roomsRepository.findRoomByName(roomName);
+        if (!room) {
+            throw new NotFoundException(`Room '${roomName}' not found lmao try again`);
+        }
+
+        if (room.status === 'banned') {
+            throw new ForbiddenException('This room is freakin banned for some reason by us, admins get a job instead');
+        }
+
+        return room;
+    }
 }

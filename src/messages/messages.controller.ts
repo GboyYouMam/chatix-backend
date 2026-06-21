@@ -2,7 +2,7 @@ import {Controller, Post, Get, Param, Body, UseGuards, Ip, Delete} from '@nestjs
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { type RequestUser } from './dto/create-message.dto';
+import {  RequestUser } from './dto/create-message.dto';
 import { CreateMessageDTO } from "./dto/create-message.dto";
 import {AdminGuard} from "../auth/admin.guard";
 
