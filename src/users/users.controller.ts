@@ -50,4 +50,10 @@ export class UsersController {
     async farmAura(@CurrentUser() user: RequestUser) {
         return this.usersService.auraFarming(user.userId);
     }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('pay-debt')
+    async payDebt(@CurrentUser() user: RequestUser) {
+        return this.usersService.payDebt(user.userId);
+    }
 }

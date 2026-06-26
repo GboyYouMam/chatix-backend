@@ -29,6 +29,13 @@
       "when": 1781457689143,
       "tag": "0003_mighty_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782233618716,
+      "tag": "0004_admin_moderation_audit",
+      "breakpoints": true
     }
   ]
 }

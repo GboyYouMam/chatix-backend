@@ -1,44 +1,47 @@
-import { IsBoolean, IsInt, IsOptional, IsString, IsDateString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsDateString,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateUserModifiersDTO {
-    @IsOptional()
-    @IsInt({ message: 'Warns count must be an integer' })
-    warnsCount?: number;
+  @IsOptional()
+  @IsBoolean()
+  canChangeProfile?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    canChangeProfile?: boolean;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  forcedTitle?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    forcedTitle?: string;
+  @IsOptional()
+  @IsDateString()
+  bannedUntil?: string;
 
-    @IsOptional()
-    @IsDateString()
-    bannedUntil?: string;
+  @IsOptional()
+  @IsDateString()
+  yapCooldown?: string;
 
-    @IsOptional()
-    @IsDateString()
-    yapCooldown?: string;
+  @IsOptional()
+  @IsInt()
+  aura?: number;
 
-    @IsOptional()
-    @IsInt()
-    aura?: number;
+  @IsOptional()
+  @IsBoolean()
+  isMogged?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    isMogged?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  isClown?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    isClown?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  adminGlazeMode?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    adminGlazeMode?: boolean;
-
-    @IsOptional()
-    @IsInt()
-    debt?: number;
+  @IsOptional()
+  @IsInt()
+  debt?: number;
 }
