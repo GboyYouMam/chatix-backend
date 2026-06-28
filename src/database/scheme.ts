@@ -26,6 +26,10 @@ export const users = pgTable('users', {
     //-------------------------------------------------------------------------------------------------
     created_at: timestamp().defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+    upper_banner_url: varchar('upper_banner_url', {length: 255}),
+    left_banner_url: varchar('left_banner_url', {length: 255}),
+    right_banner_url: varchar('right_banner_url', {length: 255}),
+    respect_count: inet('respect_count'),
 })
 
 export const RoomState = pgEnum('room_state', ['active', 'checkout', 'banned', 'quarantined']);
