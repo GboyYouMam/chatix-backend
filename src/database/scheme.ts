@@ -27,6 +27,10 @@ export const users = pgTable('users', {
     //-------------------------------------------------------------------------------------------------
     created_at: timestamp().defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+    upper_banner_url: varchar('upper_banner_url', {length: 255}),
+    left_banner_url: varchar('left_banner_url', {length: 255}),
+    right_banner_url: varchar('right_banner_url', {length: 255}),
+    respect_count: inet('respect_count'),
 })
 
 export const RoomState = pgEnum('room_state', ['active', 'checkout', 'banned', 'quarantined']);
@@ -56,9 +60,20 @@ export const messages = pgTable('messages', {
     updatedAt: timestamp('updated_at'),
 });
 
+export const profileComments = pgTable('profile_comments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    profileOwnerId: uuid('profile_owner_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
     rooms: many(rooms),
     messages: many(messages),
+    profileCommentsWritten: many(profileComments, { relationName: 'profileCommentAuthor' }),
+    profileCommentsReceived: many(profileComments, { relationName: 'profileCommentProfileOwner' }),
 }));
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({
@@ -69,4 +84,17 @@ export const roomsRelations = relations(rooms, ({ one, many }) => ({
 export const messagesRelations = relations(messages, ({ one }) => ({
     author: one(users, { fields: [messages.authorId], references: [users.id] }),
     room: one(rooms, { fields: [messages.roomId], references: [rooms.id] }),
+}));
+
+export const profileCommentsRelations = relations(profileComments, ({ one }) => ({
+    author: one(users, {
+        fields: [profileComments.authorId],
+        references: [users.id],
+        relationName: 'profileCommentAuthor',
+    }),
+    profileOwner: one(users, {
+        fields: [profileComments.profileOwnerId],
+        references: [users.id],
+        relationName: 'profileCommentProfileOwner',
+    }),
 }));
