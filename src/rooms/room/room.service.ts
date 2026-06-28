@@ -18,8 +18,8 @@ export class RoomService {
         }
 
         return this.roomsRepository.create({
-            creatorId,
-            ...data
+            ...data,
+            creatorId
         });
     }
 
