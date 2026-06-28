@@ -6,9 +6,11 @@ import { StorageModule } from './storage/storage.module';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import {RoomsModule} from "./rooms/room/room.module";
+import {MessagesModule} from "./messages/messages.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AdminModule, StorageModule, AuthModule, UsersModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AdminModule, StorageModule, AuthModule, UsersModule, RoomsModule, MessagesModule],
   controllers: [AppController],
   providers: [AppService],
 })

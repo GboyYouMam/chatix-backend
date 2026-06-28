@@ -1,9 +1,9 @@
-import {Controller, Post, Get, Param, Body, UseGuards, Patch, Delete} from '@nestjs/common';
+import {Controller, Post, Get, Param, Body, UseGuards, Patch, Delete, Query} from '@nestjs/common';
 import { RoomService } from './room.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
-import { type RequestUser } from './dto/create-room.dto';
-import { type CreateRoomDTO } from './dto/create-room.dto';
+import { RequestUser } from './dto/create-room.dto';
+import { CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
 import {UpdateRoomDTO} from "./dto/update-room.dto";
 
@@ -17,22 +17,25 @@ export class RoomsController {
         @Body() body: CreateRoomDTO,
         @CurrentUser() user: RequestUser
     ) {
-        return this.roomsService.createRoom(user.userId, {
-            creatorId: user.userId,
-            title: body.title,
-            topic: body.topic,
-            description: body.description,
-            publicity: body.publicity || 'public'
-        });
+        return this.roomsService.createRoom(user.userId, body);
     }
+
     @Get()
-    async getAllActiveRooms() {
+    async getAllActiveRooms(@Query('publicity') publicity?: 'public' | 'private') {
+        if (publicity) {
+            return this.roomsService.getRoomsByPublicity(publicity);
+        }
         return this.roomsService.getLobbyRooms();
     }
 
     @Get(':id')
     async getRoom(@Param('id') id: string) {
         return this.roomsService.getRoomsDetails(id);
+    }
+
+    @Get('by-name/:name')
+    async getRoomByName(@Param('name') name: string) {
+        return this.roomsService.findRoomByName(name);
     }
 
     @UseGuards(JwtAuthGuard)
@@ -72,5 +75,15 @@ export class RoomsController {
     ) {
         await this.roomsService.deleteRoom(id, user.userId);
         return { message: 'ERASED' };
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post(':id/join')
+    async joinPrivateRoom(
+        @Param('id') id: string,
+        @Body('password') password: string,
+        @CurrentUser() user: RequestUser
+    ) {
+        return this.roomsService.joinPrivateRoom(id, user.userId, password);
     }
 }

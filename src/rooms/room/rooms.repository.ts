@@ -18,14 +18,19 @@ export class RoomsRepository {
         });
     }
 
-    async create(data: { creatorId: string; title: string; topic?: string; description?: string; publicity: 'public' | 'private'; }) {
+    async create(data: { creatorId: string; title: string; topic?: string; description?: string; publicity: 'public' | 'private'; password?: string }) {
         const [newRoom] = await this.db.insert(scheme.rooms).values({
             creatorId: data.creatorId,
             title: data.title,
             topic: data.topic,
             description: data.description,
             publicity: data.publicity,
+            password: data.password,
         }).returning();
+
+        if (data.publicity === 'private') {
+            await this.grantAccess(newRoom.id, data.creatorId);
+        }
 
         return newRoom;
     }
@@ -34,6 +39,12 @@ export class RoomsRepository {
         return this.db.query.rooms.findFirst({
             where: eq(scheme.rooms.id, roomId),
             with: { creator: true },
+        });
+    }
+
+    async findRoomByName(roomName: string) {
+        return this.db.query.rooms.findFirst({
+            where:eq(scheme.rooms.title, roomName),
         });
     }
 
@@ -51,7 +62,10 @@ export class RoomsRepository {
 
     async findRoomsByPublicity(publicity: 'public' | 'private') {
         return this.db.query.rooms.findMany({
-            where: eq(scheme.rooms.publicity, publicity),
+            where: and(
+                eq(scheme.rooms.status, 'active'),
+                eq(scheme.rooms.publicity, publicity),
+            ),
             orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
             with: {
                 creator: {
@@ -111,5 +125,22 @@ export class RoomsRepository {
             .where(eq(scheme.rooms.id, roomId))
             .returning();
         return updatedRoom;
+    }
+
+    async checkAccess(roomId: string, userId: string) {
+        return this.db.query.roomAccesses.findFirst({
+            where: and(
+                eq(scheme.roomAccesses.roomId, roomId),
+                eq(scheme.roomAccesses.userId, userId)
+            ),
+        });
+    }
+
+    async grantAccess(roomId: string, userId: string) {
+        await this.db.insert(scheme.roomAccesses).values({
+            roomId,
+            userId,
+        }).onConflictDoNothing();
+        return true;
     }
 }

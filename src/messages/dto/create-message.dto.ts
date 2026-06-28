@@ -1,9 +1,16 @@
+import { IsNotEmpty, IsString } from 'class-validator';
+
 export class CreateMessageDTO {
+    @IsString()
+    @IsNotEmpty()
     roomId: string;
+
+    @IsString()
+    @IsNotEmpty()
     cipherText: string;
 }
 
-export interface RequestUser {
+export class RequestUser {
     userId: string;
     username: string;
     role: string;
