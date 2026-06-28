@@ -143,4 +143,13 @@ export class RoomsRepository {
         }).onConflictDoNothing();
         return true;
     }
+
+    async findAllAdmin() {
+        return this.db.query.rooms.findMany({
+            orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
+            with: {
+                creator: { columns: { id: true, username: true } }
+            }
+        });
+    }
 }

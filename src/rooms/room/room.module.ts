@@ -9,6 +9,6 @@ import { RoomsRepository } from './rooms.repository';
     RoomService,
     RoomsRepository
   ],
-  exports: [RoomService]
+  exports: [RoomService, RoomsRepository]
 })
 export class RoomsModule {}

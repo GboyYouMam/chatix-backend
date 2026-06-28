@@ -25,6 +25,10 @@ export class MessagesService {
             throw new ForbiddenException(`Room is locked: ${room.quarantineReason || 'KILLSQUAD DECIDED SO'}`);
         }
 
+        if(user.debt > 0) {
+            throw new ForbiddenException(`U CANT SEND A REPLY WITH A DEBT ${user.debt}$ BUM`)
+        }
+
         let finalMessageText = cipherText;
 
         if (user.adminGlazeMode) {

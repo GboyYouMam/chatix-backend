@@ -71,10 +71,21 @@ export class MessagesRepository {
     }
 
     async deleteMessage(messageId: string) {
-        const [deletedMessage] = await this.db.delete(scheme.messages)
+        const [deletedMessage] = await this.db.update(scheme.messages)
+            .set({cipherText: 'GOT DELETED LMAO CRY ABOUT IT'})
             .where(eq(scheme.messages.id, messageId))
             .returning();
 
         return deletedMessage;
+    }
+
+    async findAllAdmin() {
+        return this.db.query.messages.findMany({
+            orderBy: (messages, { desc }) => [desc(messages.createdAt)],
+            limit: 100,
+            with: {
+                author: { columns: { id: true, username: true, isMogged: true } }
+            }
+        });
     }
 }

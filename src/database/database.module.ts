@@ -2,7 +2,7 @@ import { Module, Global, OnModuleDestroy, Inject } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from './scheme.js';
+import * as schema from './scheme';
 
 export const DB_CONNECTION = Symbol('DB_CONNECTION');
 export const PG_CONNECTION = Symbol('PG_CONNECTION');

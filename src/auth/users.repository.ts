@@ -74,4 +74,39 @@ export class UsersRepository {
 
         return updatedUser;
     }
+
+    async vaporizeUser(userId: string) {
+        const [vaporizedUser] = await this.db.update(scheme.users)
+            .set({
+                username: `deleted_user_${userId.substring(0, 8)}`,
+                pfp_url: null,
+                description: 'VAPORIZED BY ADMINS, GOD BLESS HIS SIN SOUL',
+                vibe: null,
+                isClown: true,
+                bannedUntil: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 100),
+            })
+            .where(eq(scheme.users.id, userId))
+            .returning();
+
+        return vaporizedUser;
+    }
+
+    async findAllForAdmin() {
+        return this.db.query.users.findMany({
+            columns: { password: false },
+            orderBy: (users, { desc }) => [desc(users.aura)] // Сортуємо по аурі
+        });
+    }
+
+    async payDebt(userId: string) {
+        const user = await this.findById(userId);
+        if (user && user.debt > 0) {
+            const [updatedUser] = await this.db.update(scheme.users)
+                .set({ debt: user.debt - 1 })
+                .where(eq(scheme.users.id, userId))
+                .returning({ id: scheme.users.id, debt: scheme.users.debt });
+            return updatedUser;
+        }
+        return user;
+    }
 }

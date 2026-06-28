@@ -69,4 +69,19 @@ export class UsersService {
             message: "aura farmed"
         };
     }
+
+    async payDebt(userId: string) {
+        const user = await this.usersRepository.findById(userId);
+        if (!user) throw new NotFoundException('User not found');
+
+        if (user.debt <= 0) {
+            return { message: 'You have no debt, bro. Chill.', debt: 0 };
+        }
+
+        const updated = await this.usersRepository.payDebt(userId);
+        return {
+            message: '-1 credit. Keep grinding, bum.',
+            debt: updated?.debt
+        };
+    }
 }

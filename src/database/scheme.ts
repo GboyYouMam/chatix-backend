@@ -1,6 +1,5 @@
-import {pgTable, uuid, varchar, text, timestamp, inet, pgEnum, integer, boolean, primaryKey} from 'drizzle-orm/pg-core';
+import {pgTable, uuid, varchar, text, timestamp, inet, pgEnum, integer, boolean, primaryKey, jsonb, index} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import {iterator} from "rxjs/internal/symbol/iterator";
 
 export const Roles = pgEnum('role', ['user', 'admin']);
 
@@ -61,20 +60,41 @@ export const messages = pgTable('messages', {
     updatedAt: timestamp('updated_at'),
 });
 
-export const profileComments = pgTable('profile_comments', {
+export const userWarnings = pgTable('user_warnings', {
     id: uuid('id').primaryKey().defaultRandom(),
-    authorId: uuid('author_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-    profileOwnerId: uuid('profile_owner_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-    content: text('content').notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    adminId: uuid('admin_id').references(() => users.id, { onDelete: 'set null' }),
+    reason: text('reason').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+    revokedAt: timestamp('revoked_at'),
+}, (table) => ({
+    userCreatedAtIdx: index('user_warnings_user_created_at_idx').on(table.userId, table.createdAt),
+}));
+
+export const adminAuditLogs = pgTable('admin_audit_logs', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminId: uuid('admin_id').references(() => users.id, { onDelete: 'set null' }),
+    action: varchar('action', { length: 100 }).notNull(),
+    method: varchar('method', { length: 10 }).notNull(),
+    path: varchar('path', { length: 500 }).notNull(),
+    targetType: varchar('target_type', { length: 50 }),
+    targetId: varchar('target_id', { length: 255 }),
+    statusCode: integer('status_code').notNull(),
+    success: boolean('success').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+    createdAtIdx: index('admin_audit_logs_created_at_idx').on(table.createdAt),
+    adminCreatedAtIdx: index('admin_audit_logs_admin_created_at_idx').on(table.adminId, table.createdAt),
+}));
 
 export const usersRelations = relations(users, ({ many }) => ({
     rooms: many(rooms),
     messages: many(messages),
-    profileCommentsWritten: many(profileComments, { relationName: 'profileCommentAuthor' }),
-    profileCommentsReceived: many(profileComments, { relationName: 'profileCommentProfileOwner' }),
+    warnings: many(userWarnings, { relationName: 'warnedUser' }),
+    warningsIssued: many(userWarnings, { relationName: 'warningAdmin' }),
+    adminAuditLogs: many(adminAuditLogs),
 }));
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({
@@ -85,6 +105,23 @@ export const roomsRelations = relations(rooms, ({ one, many }) => ({
 export const messagesRelations = relations(messages, ({ one }) => ({
     author: one(users, { fields: [messages.authorId], references: [users.id] }),
     room: one(rooms, { fields: [messages.roomId], references: [rooms.id] }),
+}));
+
+export const userWarningsRelations = relations(userWarnings, ({ one }) => ({
+    user: one(users, {
+        fields: [userWarnings.userId],
+        references: [users.id],
+        relationName: 'warnedUser',
+    }),
+    admin: one(users, {
+        fields: [userWarnings.adminId],
+        references: [users.id],
+        relationName: 'warningAdmin',
+    }),
+}));
+
+export const adminAuditLogsRelations = relations(adminAuditLogs, ({ one }) => ({
+    admin: one(users, { fields: [adminAuditLogs.adminId], references: [users.id] }),
 }));
 
 export const roomAccesses = pgTable('room_accesses', {
