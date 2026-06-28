@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { DB_CONNECTION } from "../database/database.module";
 import * as scheme from '../database/scheme';
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
@@ -9,6 +9,10 @@ export interface UpdateUserData {
     description?: string;
     vibe?: string;
     pfp_url?: string;
+    upper_banner_url?: string;
+    left_banner_url?: string;
+    right_banner_url?: string;
+
 }
 
 @Injectable()
@@ -18,6 +22,15 @@ export class UsersRepository {
     async findByUsername(username: string) {
         return this.db.query.users.findFirst({
             where: eq(scheme.users.username, username),
+        });
+    }
+
+    async findPublicByUsername(username: string) {
+        return this.db.query.users.findFirst({
+            where: eq(scheme.users.username, username),
+            columns: {
+                password: false,
+            },
         });
     }
 
@@ -68,6 +81,9 @@ export class UsersRepository {
                 id: scheme.users.id,
                 username: scheme.users.username,
                 pfp_url: scheme.users.pfp_url,
+                upper_banner_url: scheme.users.upper_banner_url,
+                left_banner_url: scheme.users.left_banner_url,
+                right_banner_url: scheme.users.right_banner_url,
                 description: scheme.users.description,
                 vibe: scheme.users.vibe
             });
@@ -108,5 +124,83 @@ export class UsersRepository {
             return updatedUser;
         }
         return user;
+    }
+
+    async findProfileComments(profileUserId: string, limit = 50) {
+        return this.db.query.profileComments.findMany({
+            where: eq(scheme.profileComments.profileUserId, profileUserId),
+            orderBy: [desc(scheme.profileComments.createdAt)],
+            limit,
+            with: {
+                author: {
+                    columns: {
+                        id: true,
+                        username: true,
+                        pfp_url: true,
+                    },
+                },
+            },
+        });
+    }
+
+    async createProfileComment(profileUserId: string, authorId: string, body: string) {
+        const [comment] = await this.db
+            .insert(scheme.profileComments)
+            .values({ profileUserId, authorId, body })
+            .returning();
+
+        return this.db.query.profileComments.findFirst({
+            where: eq(scheme.profileComments.id, comment.id),
+            with: {
+                author: {
+                    columns: {
+                        id: true,
+                        username: true,
+                        pfp_url: true,
+                    },
+                },
+            },
+        });
+    }
+
+    async hasRespectedProfile(profileUserId: string, admirerId: string) {
+        const respect = await this.db.query.profileRespects.findFirst({
+            where: and(
+                eq(scheme.profileRespects.profileUserId, profileUserId),
+                eq(scheme.profileRespects.admirerId, admirerId),
+            ),
+        });
+
+        return Boolean(respect);
+    }
+
+    async giveProfileRespect(profileUserId: string, admirerId: string) {
+        return this.db.transaction(async (tx) => {
+            const [inserted] = await tx
+                .insert(scheme.profileRespects)
+                .values({ profileUserId, admirerId })
+                .onConflictDoNothing()
+                .returning();
+
+            const [{ total }] = await tx
+                .select({ total: count() })
+                .from(scheme.profileRespects)
+                .where(eq(scheme.profileRespects.profileUserId, profileUserId));
+
+            return {
+                respected: true,
+                respectCount: Number(total),
+                alreadyRespected: !inserted,
+            };
+        });
+    }
+
+    async countProfileRespects(profileUserId: string) {
+        const [{ total }] = await this.db
+            .select({ total: count() })
+            .from(scheme.profileRespects)
+            .where(eq(scheme.profileRespects.profileUserId, profileUserId));
+
+        return total;
     }
 }
