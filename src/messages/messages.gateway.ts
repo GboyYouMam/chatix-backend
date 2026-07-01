@@ -37,6 +37,15 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     logger.log(`bum ${client.id} joined room: ${roomId}`);
   }
 
+    @SubscribeMessage('leaveRoom')
+    handleLeaveRoom(
+        @MessageBody() roomId: string,
+        @ConnectedSocket() client: Socket,
+    ) {
+        client.leave(roomId);
+        logger.log(`bum ${client.id} left room: ${roomId}`);
+    }
+
   @SubscribeMessage('sendMessage')
   async handleMessage(
       @MessageBody() payload: { roomId: string; authorId: string; text: string },
