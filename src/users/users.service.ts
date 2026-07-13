@@ -113,7 +113,7 @@ export class UsersService {
 
         return {
             message: 'Comment added',
-            comment,
+            comment_id: comment.id,
         };
     }
 
@@ -131,10 +131,11 @@ export class UsersService {
             profileUser.id,
             admirerId,
         );
+        const respectCount = await this.usersRepository.countProfileRespects(profileUser.id);
 
         return {
             message: respect.alreadyRespected ? 'Respect already given' : 'Respect given',
-            respect_count: respect.respectCount,
+            respectCount,
             ...respect,
         };
     }

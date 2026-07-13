@@ -110,7 +110,7 @@ export class UsersRepository {
     async findAllForAdmin() {
         return this.db.query.users.findMany({
             columns: { password: false },
-            orderBy: (users, { desc }) => [desc(users.aura)] // Сортуємо по аурі
+            orderBy: (users, { desc }) => [desc(users.aura)]
         });
     }
 
@@ -147,20 +147,9 @@ export class UsersRepository {
         const [comment] = await this.db
             .insert(scheme.profileComments)
             .values({ profileUserId, authorId, body })
-            .returning();
+            .returning({ id: scheme.profileComments.id });
 
-        return this.db.query.profileComments.findFirst({
-            where: eq(scheme.profileComments.id, comment.id),
-            with: {
-                author: {
-                    columns: {
-                        id: true,
-                        username: true,
-                        pfp_url: true,
-                    },
-                },
-            },
-        });
+        return comment;
     }
 
     async hasRespectedProfile(profileUserId: string, admirerId: string) {
@@ -175,24 +164,16 @@ export class UsersRepository {
     }
 
     async giveProfileRespect(profileUserId: string, admirerId: string) {
-        return this.db.transaction(async (tx) => {
-            const [inserted] = await tx
-                .insert(scheme.profileRespects)
-                .values({ profileUserId, admirerId })
-                .onConflictDoNothing()
-                .returning();
+        const [inserted] = await this.db
+            .insert(scheme.profileRespects)
+            .values({ profileUserId, admirerId })
+            .onConflictDoNothing()
+            .returning({ profileUserId: scheme.profileRespects.profileUserId });
 
-            const [{ total }] = await tx
-                .select({ total: count() })
-                .from(scheme.profileRespects)
-                .where(eq(scheme.profileRespects.profileUserId, profileUserId));
-
-            return {
-                respected: true,
-                respectCount: Number(total),
-                alreadyRespected: !inserted,
-            };
-        });
+        return {
+            respected: true,
+            alreadyRespected: !inserted,
+        };
     }
 
     async countProfileRespects(profileUserId: string) {
