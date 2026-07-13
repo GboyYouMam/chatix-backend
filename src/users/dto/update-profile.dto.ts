@@ -17,4 +17,13 @@ export class UpdateProfileDto {
 
     @IsOptional()
     file?: any;
+
+    @IsOptional()
+    upper_banner?: any;
+
+    @IsOptional()
+    left_banner?: any;
+
+    @IsOptional()
+    right_banner?: any;
 }

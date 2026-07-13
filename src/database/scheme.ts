@@ -29,8 +29,29 @@ export const users = pgTable('users', {
     upper_banner_url: varchar('upper_banner_url', {length: 255}),
     left_banner_url: varchar('left_banner_url', {length: 255}),
     right_banner_url: varchar('right_banner_url', {length: 255}),
-    respect_count: inet('respect_count'),
+    respectCount: integer('respect_count').default(0).notNull(),
 })
+
+export const profileComments = pgTable('profile_comments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    profileUserId: uuid('profile_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+    profileCreatedAtIdx: index('profile_comments_profile_created_at_idx').on(table.profileUserId, table.createdAt),
+    authorCreatedAtIdx: index('profile_comments_author_created_at_idx').on(table.authorId, table.createdAt),
+}));
+
+export const profileRespects = pgTable('profile_respects', {
+    profileUserId: uuid('profile_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    admirerId: uuid('admirer_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+    pk: primaryKey({ columns: [table.profileUserId, table.admirerId] }),
+    admirerCreatedAtIdx: index('profile_respects_admirer_created_at_idx').on(table.admirerId, table.createdAt),
+}));
 
 export const RoomState = pgEnum('room_state', ['active', 'checkout', 'banned', 'quarantined']);
 export const RoomPublicity = pgEnum('room_publicity', ['public', 'private']);
@@ -95,6 +116,36 @@ export const usersRelations = relations(users, ({ many }) => ({
     warnings: many(userWarnings, { relationName: 'warnedUser' }),
     warningsIssued: many(userWarnings, { relationName: 'warningAdmin' }),
     adminAuditLogs: many(adminAuditLogs),
+    profileComments: many(profileComments, { relationName: 'profileUserComments' }),
+    authoredProfileComments: many(profileComments, { relationName: 'profileCommentAuthor' }),
+    receivedRespects: many(profileRespects, { relationName: 'profileUserRespects' }),
+    givenRespects: many(profileRespects, { relationName: 'profileRespectAdmirer' }),
+}));
+
+export const profileCommentsRelations = relations(profileComments, ({ one }) => ({
+    profileUser: one(users, {
+        fields: [profileComments.profileUserId],
+        references: [users.id],
+        relationName: 'profileUserComments',
+    }),
+    author: one(users, {
+        fields: [profileComments.authorId],
+        references: [users.id],
+        relationName: 'profileCommentAuthor',
+    }),
+}));
+
+export const profileRespectsRelations = relations(profileRespects, ({ one }) => ({
+    profileUser: one(users, {
+        fields: [profileRespects.profileUserId],
+        references: [users.id],
+        relationName: 'profileUserRespects',
+    }),
+    admirer: one(users, {
+        fields: [profileRespects.admirerId],
+        references: [users.id],
+        relationName: 'profileRespectAdmirer',
+    }),
 }));
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({

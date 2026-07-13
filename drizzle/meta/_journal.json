@@ -36,6 +36,20 @@
       "when": 1782233618716,
       "tag": "0004_admin_moderation_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782670000000,
+      "tag": "0005_profile_comments_respects",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782684112000,
+      "tag": "0006_fix_respect_count_type",
+      "breakpoints": true
     }
   ]
 }
