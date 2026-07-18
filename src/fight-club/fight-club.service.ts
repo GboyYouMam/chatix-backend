@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { JoinFightPayload, MatchState, PlayerState } from './types/types';
+import { randomUUID } from 'node:crypto';
+import {
+  CreateFightPayload,
+  FightChallenge,
+  JoinFightPayload,
+  MatchState,
+  PlayerState,
+} from './types/types';
 import { FightClubRepository } from './fight-club.repository';
 
 @Injectable()
@@ -15,6 +22,51 @@ export class FightClubService {
   private getRandomKey(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     return chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  createMatch(
+    userId: string,
+    username: string,
+    payload: CreateFightPayload,
+  ): FightChallenge | null {
+    if (
+      !Number.isInteger(payload.stakeAmount) ||
+      payload.stakeAmount <= 0 ||
+      (payload.stakeType && !['aura', 'debt'].includes(payload.stakeType))
+    ) {
+      return null;
+    }
+
+    const match: MatchState = {
+      matchId: randomUUID(),
+      title: payload.title?.trim() || 'nameless basement duel',
+      creator: username,
+      player1: this.createPlayer(userId, ''),
+      player2: this.createPlayer('', ''),
+      currentKey: '',
+      stakeType: payload.stakeType ?? 'aura',
+      stakeAmount: payload.stakeAmount,
+      status: 'LOBBY',
+    };
+    this.activeMatches.set(match.matchId, match);
+    return this.toChallenge(match);
+  }
+
+  listChallenges() {
+    return [...this.activeMatches.values()]
+      .filter((match) => match.status === 'LOBBY' && !match.player2.id)
+      .map((match) => this.toChallenge(match));
+  }
+
+  private toChallenge(match: MatchState): FightChallenge {
+    return {
+      id: match.matchId,
+      creatorId: match.player1.id,
+      creator: match.creator,
+      title: match.title,
+      stakeType: match.stakeType,
+      stakeAmount: match.stakeAmount,
+    };
   }
 
   joinMatch(client: Socket, payload: JoinFightPayload) {
@@ -46,6 +98,8 @@ export class FightClubService {
 
       match = {
         matchId: payload.matchId,
+        title: 'basement duel',
+        creator: payload.userId,
         player1: this.createPlayer(payload.userId, client.id),
         player2: this.createPlayer(payload.opponentId, ''),
         currentKey: '',
@@ -54,6 +108,11 @@ export class FightClubService {
         status: 'LOBBY',
       };
       this.activeMatches.set(payload.matchId, match);
+    }
+
+    if (match.player2.id === '' && match.player1.id !== payload.userId) {
+      match.player2 = this.createPlayer(payload.userId, client.id);
+      this.server?.emit('fight:challenge_removed', { matchId: match.matchId });
     }
 
     if (
@@ -75,14 +134,6 @@ export class FightClubService {
         p2Combo: match.player2.combo,
         nextKey: match.currentKey,
       });
-    }
-
-    if (
-      match.status === 'LOBBY' &&
-      match.player1.socketId &&
-      match.player2.socketId
-    ) {
-      this.startMatch(payload.matchId);
     }
 
     return true;
@@ -183,20 +234,25 @@ export class FightClubService {
     }
   }
 
-  async handlePlayerDisconnect(userId: string) {
+  async handlePlayerDisconnect(userId: string, socketId: string) {
     for (const [matchId, match] of this.activeMatches.entries()) {
       if (
         match.status === 'LOBBY' &&
-        (match.player1.id === userId || match.player2.id === userId)
+        ((match.player1.id === userId && match.player1.socketId === socketId) ||
+          (match.player2.id === userId && match.player2.socketId === socketId))
       ) {
         this.activeMatches.delete(matchId);
-        this.server
-          .to(matchId)
-          .emit('fight:cancelled', { reason: 'opponent_left' });
+        this.server?.emit('fight:challenge_removed', { matchId });
+        this.server?.to(matchId).emit('fight:cancelled', {
+          reason: 'opponent_left',
+        });
       }
 
       if (match.status === 'FIGHTING') {
-        if (match.player1.id === userId || match.player2.id === userId) {
+        if (
+          (match.player1.id === userId && match.player1.socketId === socketId) ||
+          (match.player2.id === userId && match.player2.socketId === socketId)
+        ) {
           const isPlayer1 = match.player1.id === userId;
 
           const loserId = userId;
@@ -221,7 +277,13 @@ export class FightClubService {
 
   startMatch(matchId: string) {
     const match = this.activeMatches.get(matchId);
-    if (match && match.status === 'LOBBY') {
+    if (
+      match &&
+      match.status === 'LOBBY' &&
+      match.player1.socketId &&
+      match.player2.id &&
+      match.player2.socketId
+    ) {
       match.currentKey = this.getRandomKey();
       match.status = 'FIGHTING';
       this.server

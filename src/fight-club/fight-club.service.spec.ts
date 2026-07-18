@@ -71,6 +71,20 @@ describe('FightClubService', () => {
     expect(join('p2', -1)).toBe(false);
   });
 
+  it('does not start a match until both players are connected', () => {
+    const client = { emit: jest.fn(), id: 's1' } as any;
+    service.joinMatch(client, {
+      matchId: 'm1',
+      userId: 'p1',
+      opponentId: 'p2',
+      stakeAmount: 1,
+    });
+
+    service.startMatch('m1');
+
+    expect((service as any).activeMatches.get('m1').status).toBe('LOBBY');
+  });
+
   it('rate-limits hits and resyncs reconnecting players', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(1000);
     const client = { emit: jest.fn(), id: 's1' } as any;

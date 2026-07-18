@@ -8,9 +8,10 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import {RoomsModule} from "./rooms/room/room.module";
 import {MessagesModule} from "./messages/messages.module";
+import { FightClubModule } from './fight-club/fight-club.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AdminModule, StorageModule, AuthModule, UsersModule, RoomsModule, MessagesModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AdminModule, StorageModule, AuthModule, UsersModule, RoomsModule, MessagesModule, FightClubModule],
   controllers: [AppController],
   providers: [AppService],
 })
