@@ -8,6 +8,21 @@ export interface JoinFightPayload {
   stakeAmount?: number;
 }
 
+export interface CreateFightPayload {
+  title: string;
+  stakeType?: StakeVaries;
+  stakeAmount: number;
+}
+
+export interface FightChallenge {
+  id: string;
+  creatorId: string;
+  creator: string;
+  title: string;
+  stakeType: StakeVaries;
+  stakeAmount: number;
+}
+
 export interface PlayerState {
   id: string;
   socketId: string;
@@ -25,6 +40,8 @@ export type FightStatus = keyof typeof FightStatus;
 
 export interface MatchState {
   matchId: string;
+  title: string;
+  creator: string;
   player1: PlayerState;
   player2: PlayerState;
   currentKey: string;
