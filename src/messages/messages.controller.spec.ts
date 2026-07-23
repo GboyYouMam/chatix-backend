@@ -1,18 +1,32 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { MessagesController } from './messages.controller';
 
 describe('MessagesController', () => {
-  let controller: MessagesController;
+  it('saves and broadcasts uploaded attachments', async () => {
+    const message = { id: 'message-id' };
+    const messagesService = { sendMessage: jest.fn().mockResolvedValue(message) };
+    const messagesGateway = { broadcastMessage: jest.fn() };
+    const controller = new MessagesController(
+      messagesService as any,
+      messagesGateway as any,
+    );
+    const files = [{ originalname: 'image.png' }] as Express.Multer.File[];
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [MessagesController],
-    }).compile();
+    await expect(
+      controller.createMessage(
+        { roomId: 'room-id', cipherText: '' },
+        { userId: 'user-id' } as any,
+        '127.0.0.1',
+        files,
+      ),
+    ).resolves.toBe(message);
 
-    controller = module.get<MessagesController>(MessagesController);
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    expect(messagesService.sendMessage).toHaveBeenCalledWith(
+      'room-id',
+      'user-id',
+      '',
+      '127.0.0.1',
+      files,
+    );
+    expect(messagesGateway.broadcastMessage).toHaveBeenCalledWith('room-id', message);
   });
 });

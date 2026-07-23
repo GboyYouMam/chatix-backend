@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "attachment_url" varchar(1050);

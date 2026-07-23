@@ -50,6 +50,20 @@
       "when": 1782684112000,
       "tag": "0006_fix_respect_count_type",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784848191562,
+      "tag": "0007_clammy_morlocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784848603523,
+      "tag": "0008_foamy_komodo",
+      "breakpoints": true
     }
   ]
 }
