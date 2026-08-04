@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateMessageDTO {
     @IsString()
@@ -6,7 +6,7 @@ export class CreateMessageDTO {
     roomId: string;
 
     @IsString()
-    @IsNotEmpty()
+    @IsOptional()
     cipherText: string;
 }
 

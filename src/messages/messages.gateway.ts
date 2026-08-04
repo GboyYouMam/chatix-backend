@@ -28,6 +28,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     console.log(`bum disconnected: ${client.id}`);
   }
 
+  broadcastMessage(roomId: string, message: unknown) {
+    this.server.to(roomId).emit('newMessage', message);
+  }
+
   @SubscribeMessage('joinRoom')
   handleJoinRoom(
       @MessageBody() roomId: string,
@@ -50,7 +54,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
           client.handshake.address
       );
 
-      this.server.to(payload.roomId).emit('newMessage', savedMessage);
+      this.broadcastMessage(payload.roomId, savedMessage);
 
     } catch (error) {
       client.emit('errorMessage', { message: error.message });

@@ -1,18 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { MessagesService } from './messages.service';
 
 describe('MessagesService', () => {
-  let service: MessagesService;
+  it('rejects more than five attachments', async () => {
+    const service = new MessagesService({} as any, {} as any);
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [MessagesService],
-    }).compile();
-
-    service = module.get<MessagesService>(MessagesService);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+    await expect(
+      service.sendMessage('room', 'user', '', undefined, Array(6) as any),
+    ).rejects.toThrow('at most 5 files');
   });
 });
