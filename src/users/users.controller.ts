@@ -17,6 +17,7 @@ import { RequestUser } from '../auth/dto/request-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateProfileCommentDto } from './dto/create-profile-comment.dto';
 import { PROFILE_IMAGE_POLICY } from '../storage/file-policy';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -101,6 +102,7 @@ export class UsersController {
   }
 
   @Post('farm-aura')
+  @SkipThrottle()
   async farmAura(@CurrentUser() user: RequestUser) {
     return this.usersService.auraFarming(user.userId);
   }

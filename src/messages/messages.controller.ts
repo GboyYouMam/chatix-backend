@@ -19,6 +19,8 @@ import { CreateMessageDTO } from './dto/create-message.dto';
 import { AdminGuard } from '../auth/admin.guard';
 import { MessagesGateway } from './messages.gateway';
 import { MESSAGE_ATTACHMENT_POLICY } from '../storage/file-policy';
+import { Throttle } from '@nestjs/throttler';
+import { UserThrottlerGuard } from '../common/guards/user-throttler.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -29,6 +31,8 @@ export class MessagesController {
   ) {}
 
   @Post()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard, UserThrottlerGuard)
   @UseInterceptors(
     FilesInterceptor('attachments', MESSAGE_ATTACHMENT_POLICY.maxFiles, {
       limits: { fileSize: MESSAGE_ATTACHMENT_POLICY.maxBytes },

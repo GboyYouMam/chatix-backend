@@ -16,6 +16,7 @@ import { RequestUser } from '../../auth/dto/request-user.dto';
 import { CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
 import { UpdateRoomDTO } from './dto/update-room.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('rooms')
 export class RoomsController {
@@ -88,6 +89,7 @@ export class RoomsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async joinPrivateRoom(
     @Param('id') id: string,
     @Body('password') password: string,
