@@ -16,6 +16,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { GlobalThrottlerGuard } from './common/guards/user-throttler.guard';
+import { AchievementsModule } from './achievements/achievements.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { GlobalThrottlerGuard } from './common/guards/user-throttler.guard';
     }),
     LoggingModule,
     RealtimeModule,
+    AchievementsModule,
     DatabaseModule,
     AdminModule,
     StorageModule,

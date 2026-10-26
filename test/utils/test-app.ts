@@ -44,7 +44,7 @@ export async function createTestApp(): Promise<{
       await connection.end();
     },
     reset: async () => {
-      await connection`TRUNCATE admin_audit_logs, user_warnings, message_attachments, messages, profile_comments, profile_respects, room_accesses, rooms, users CASCADE`;
+      await connection`TRUNCATE admin_audit_logs, user_achievements, fights, user_warnings, message_attachments, messages, profile_comments, profile_respects, room_accesses, rooms, users CASCADE`;
     },
   };
 }

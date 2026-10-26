@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersRepository } from '../users/users.repository';
 import { PASSWORD_REGEX, USERNAME_REGEX } from './auth.constants';
 import { BannedException } from '../common/errors/banned.exception';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +18,7 @@ export class AuthService {
   constructor(
     private readonly userRepository: UsersRepository,
     private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
   ) {}
   private generateToken(
     userId: string,
@@ -72,6 +74,7 @@ export class AuthService {
       throw new BannedException(user.bannedUntil, user.banReason);
     }
     this.logger.log({ event: 'auth.login.success', userId: user.id });
+    await this.usersService.recordLogin(user.id);
     return this.generateToken(
       user.id,
       user.username,

@@ -138,10 +138,29 @@ export class UsersRepository {
   async incrementAura(userId: string) {
     const [user] = await this.db
       .update(scheme.users)
-      .set({ aura: sql`${scheme.users.aura} + 1` })
+      .set({
+        aura: sql`${scheme.users.aura} + 1`,
+        auraFarmCount: sql`${scheme.users.auraFarmCount} + 1`,
+      })
       .where(eq(scheme.users.id, userId))
       .returning({ aura: scheme.users.aura });
     return user?.aura;
+  }
+
+  async updateLogin(userId: string, timezone?: string) {
+    return this.db
+      .update(scheme.users)
+      .set({ lastSeenAt: new Date(), ...(timezone ? { timezone } : {}) })
+      .where(eq(scheme.users.id, userId))
+      .returning({ lastSeenAt: scheme.users.lastSeenAt });
+  }
+
+  async findAchievements(userId: string) {
+    return this.db.query.userAchievements.findMany({
+      where: eq(scheme.userAchievements.userId, userId),
+      columns: { key: true, unlockedAt: true },
+      orderBy: (items, { asc }) => [asc(items.unlockedAt)],
+    });
   }
 
   async vaporizeUser(userId: string) {

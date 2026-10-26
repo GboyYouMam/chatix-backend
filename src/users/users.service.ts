@@ -9,15 +9,17 @@ import { StorageService } from '../storage/storage.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileFilesDTO } from './dto/profile-files.dto';
 import { assertAllowed, PROFILE_IMAGE_POLICY } from '../storage/file-policy';
+import { AchievementsService } from '../achievements/achievements.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly storageService: StorageService,
+    private readonly achievements: AchievementsService,
   ) {}
 
-  async getUserProfile(userId: string) {
+  async getUserProfile(userId: string, timezone?: string) {
     const user = await this.usersRepository.findById(userId);
 
     if (!user) {
@@ -26,11 +28,46 @@ export class UsersService {
 
     const respectCount = user.respectCount;
 
+    await this.recordLogin(userId, timezone);
+    const achievements = await this.usersRepository.findAchievements(userId);
     return {
       ...user,
+      achievements: achievements.map(({ key, unlockedAt }) => ({
+        key,
+        unlockedAt,
+      })),
+      featuredAchievements: user.featuredAchievements,
+      fightTitle:
+        user.fightTitleUntil && user.fightTitleUntil > new Date()
+          ? user.fightTitle
+          : null,
       respectCount,
       respect_count: respectCount,
     };
+  }
+
+  private isTimezone(value: string) {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async recordLogin(userId: string, timezone?: string) {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) return;
+    await this.achievements.evaluate(userId, 'login');
+    await this.usersRepository.updateLogin(
+      userId,
+      timezone && this.isTimezone(timezone)
+        ? timezone
+        : (user.timezone ?? undefined),
+    );
+    if (user.bannedUntil && user.bannedUntil <= new Date()) {
+      await this.achievements.grant(userId, 'survivor');
+    }
   }
 
   async updateProfile(
@@ -194,6 +231,7 @@ export class UsersService {
   async auraFarming(userId: string) {
     const newAura = await this.usersRepository.incrementAura(userId);
     if (newAura === undefined) throw new NotFoundException('User not found');
+    await this.achievements.evaluate(userId, 'aura');
 
     return {
       aura: newAura,
