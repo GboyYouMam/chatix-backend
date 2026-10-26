@@ -1,17 +1,22 @@
 import { ExecutionContext, Injectable, SetMetadata } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { RequestUser } from '../../auth/dto/request-user.dto';
+import { getClientIp } from '../net/client-ip';
+import type { Request } from 'express';
 
 export const USER_SCOPED_THROTTLE = 'user-scoped-throttle';
 export const UserScopedThrottle = () => SetMetadata(USER_SCOPED_THROTTLE, true);
 
 @Injectable()
 export class UserThrottlerGuard extends ThrottlerGuard {
-  protected getTracker(req: {
-    ip: string;
-    user?: RequestUser;
-  }): Promise<string> {
-    return Promise.resolve(req.user?.userId ?? req.ip);
+  protected getTracker(req: Request & { user?: RequestUser }): Promise<string> {
+    return Promise.resolve(
+      req.user?.userId ??
+        getClientIp(req, {
+          trustProxy: process.env.TRUST_PROXY,
+          trustedIpHeader: process.env.TRUSTED_IP_HEADER,
+        }),
+    );
   }
 }
 

@@ -34,7 +34,6 @@ export async function createTestApp(): Promise<{
     imports: [AppModule],
   }).compile();
   const app = module.createNestApplication<NestExpressApplication>();
-  app.set('trust proxy', true);
   configureApp(app, app.get(ConfigService));
   await app.init();
   return {

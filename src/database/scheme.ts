@@ -11,8 +11,9 @@ import {
   primaryKey,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { desc, relations, sql } from 'drizzle-orm';
 
 export const Roles = pgEnum('role', ['user', 'admin']);
 
@@ -105,43 +106,62 @@ export const RoomState = pgEnum('room_state', [
   'checkout',
   'banned',
   'quarantined',
+  'rejected',
 ]);
 export const RoomPublicity = pgEnum('room_publicity', ['public', 'private']);
-export const rooms = pgTable('rooms', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  creatorId: uuid('creator_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  status: RoomState('room_state').default('checkout'),
-  publicity: RoomPublicity('room_publicity').default('public'),
-  title: varchar('title', { length: 255 }).notNull(),
-  topic: varchar('topic', { length: 255 }),
-  description: text('description'),
-  password: varchar('password', { length: 255 }),
-  //fun
-  quarantineReason: text('quarantine_reason'),
-  quarantinedUntil: timestamp('quarantined_until'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+export const rooms = pgTable(
+  'rooms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    creatorId: uuid('creator_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    status: RoomState('room_state').default('checkout'),
+    publicity: RoomPublicity('room_publicity').default('public'),
+    title: varchar('title', { length: 255 }).notNull(),
+    topic: varchar('topic', { length: 255 }),
+    description: text('description'),
+    password: varchar('password', { length: 255 }),
+    //fun
+    statusReason: text('status_reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => ({
+    titleLowerUnique: uniqueIndex('rooms_title_lower_unique').on(
+      sql`lower(${table.title})`,
+    ),
+  }),
+);
 
-export const messages = pgTable('messages', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  roomId: uuid('room_id')
-    .references(() => rooms.id, { onDelete: 'cascade' })
-    .notNull(),
-  authorId: uuid('author_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  cipherText: text('cipher_text').notNull(),
-  ipAddress: inet('ip_address'),
-  attachmentUrl: varchar('attachment_url', { length: 1050 }),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at'),
-});
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roomId: uuid('room_id')
+      .references(() => rooms.id, { onDelete: 'cascade' })
+      .notNull(),
+    authorId: uuid('author_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    cipherText: text('cipher_text').notNull(),
+    ipAddress: inet('ip_address'),
+    attachmentUrl: varchar('attachment_url', { length: 1050 }),
+    isDeleted: boolean('is_deleted').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at'),
+  },
+  (table) => ({
+    roomCreatedIdx: index('messages_room_created_idx').on(
+      table.roomId,
+      desc(table.createdAt),
+      desc(table.id),
+    ),
+  }),
+);
 
 export const messageAttachments = pgTable(
   'message_attachments',

@@ -20,8 +20,21 @@ import { AdminGuard } from '../../auth/admin.guard';
 import { UpdateRoomDTO } from './dto/update-room.dto';
 import { AdminAuditInterceptor } from '../../admin/admin-audit.interceptor';
 import { Throttle } from '@nestjs/throttler';
-import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
+import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
+import { ListRoomsQueryDto } from './dto/list-rooms.query.dto';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+@Injectable()
+class OptionalJwtAuthGuard extends AuthGuard('jwt') {
+  handleRequest<TUser>(
+    _error: unknown,
+    user: TUser | undefined,
+  ): TUser | undefined {
+    return user;
+  }
+}
 
 @Controller('rooms')
 export class RoomsController {
@@ -37,23 +50,42 @@ export class RoomsController {
   }
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   async getAllActiveRooms(
-    @Query('publicity') publicity?: 'public' | 'private',
+    @Query() query: ListRoomsQueryDto,
+    @CurrentUser() user?: RequestUser,
   ) {
-    if (publicity) {
-      return this.roomsService.getRoomsByPublicity(publicity);
+    if (query.publicity) {
+      if (query.publicity === 'private' && !user) {
+        throw new UnauthorizedException('Authentication required');
+      }
+      return this.roomsService.getRoomsByPublicity(query.publicity);
     }
     return this.roomsService.getLobbyRooms();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('mine')
+  getMyRooms(@CurrentUser() user: RequestUser) {
+    return this.roomsService.getMyRooms(user.userId);
+  }
+
   @Get(':id')
-  async getRoom(@Param('id', ParseUUIDPipe) id: string) {
-    return this.roomsService.getRoomsDetails(id);
+  @UseGuards(OptionalJwtAuthGuard)
+  async getRoom(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    return this.roomsService.getRoomsDetails(id, user);
   }
 
   @Get('by-name/:name')
-  async getRoomByName(@Param('name') name: string) {
-    return this.roomsService.findRoomByName(name);
+  @UseGuards(OptionalJwtAuthGuard)
+  async getRoomByName(
+    @Param('name') name: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    return this.roomsService.findRoomByName(name, user);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -11,6 +11,9 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { RoomService } from '../rooms/room/room.service';
 import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
+import { ConfigService } from '@nestjs/config';
+import { ipTag } from '../common/net/ip-tag';
+import { toPublicMessage } from './message.serializer';
 
 type MessageAttachmentInput = {
   url: string;
@@ -31,6 +34,7 @@ export class MessagesService {
     private readonly storageService: StorageService,
     private readonly realtime: RealtimeService,
     private readonly roomsService: RoomService,
+    private readonly config: ConfigService,
   ) {}
 
   async sendMessage(
@@ -71,13 +75,13 @@ export class MessagesService {
 
     if (room.status === 'quarantined' || room.status === 'banned') {
       throw new ForbiddenException(
-        `Room is locked: ${room.quarantineReason || 'KILLSQUAD DECIDED SO'}`,
+        `Room is locked: ${room.statusReason || 'KILLSQUAD DECIDED SO'}`,
       );
     }
 
     if (user.debt > 0) {
       throw new ForbiddenException(
-        `U CANT SEND A REPLY WITH A DEBT ${user.debt}$ BUM`,
+        `u can't send a reply with ${user.debt} debt, bum.`,
       );
     }
 
@@ -85,15 +89,14 @@ export class MessagesService {
 
     if (user.adminGlazeMode) {
       const glazeQuotes = [
-        'I fully support the decision of our magnificent KILLSQUAD administration! ðŸ™ðŸ™ðŸ™ðŸ™',
-        'God bless our admins, God grant them good health. I love them, and I thank them.ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™',
-        'I wanna give all my lifesavings to the KILLSQUAD administration, they deserve it!ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™',
+        'i fully support the decision of our magnificent killsquad administration! ??????',
+        'god bless our admins, grant them good health. i love them, and i thank them. ??????',
+        'i wanna give all my lifesavings to the killsquad administration. they deserve it! ??????',
       ];
       finalMessageText =
         glazeQuotes[Math.floor(Math.random() * glazeQuotes.length)];
     } else if (user.isClown) {
-      finalMessageText =
-        'Well ugh actually ' + finalMessageText + ' ðŸ¤“â˜ï¸ðŸ¤¡';
+      finalMessageText = 'well ugh actually ' + finalMessageText + ' ??????';
     }
 
     const uploadedUrls: string[] = [];
@@ -114,13 +117,24 @@ export class MessagesService {
           size: file.size,
         });
       }
-      return await this.messagesRepository.create(
+      const message = await this.messagesRepository.create(
         roomId,
         authorId,
         finalMessageText,
         ipAddress,
         attachments,
       );
+      return message
+        ? toPublicMessage(
+            message,
+            message.ipAddress
+              ? ipTag(
+                  message.ipAddress,
+                  this.config.getOrThrow<string>('IP_TAG_SECRET'),
+                )
+              : null,
+          )
+        : message;
     } catch (error) {
       await Promise.all(
         uploadedUrls.map(async (url) => {
@@ -147,14 +161,27 @@ export class MessagesService {
     query: GetMessagesQueryDto,
   ) {
     await this.roomsService.assertCanAccess(roomId, userId);
-    return this.messagesRepository.getRoomHistory(roomId, query);
+    const history = await this.messagesRepository.getRoomHistory(roomId, query);
+    return {
+      ...history,
+      items: history.items.map((message) =>
+        toPublicMessage(
+          message,
+          message.ipAddress
+            ? ipTag(
+                message.ipAddress,
+                this.config.getOrThrow<string>('IP_TAG_SECRET'),
+              )
+            : null,
+        ),
+      ),
+    };
   }
 
   async deleteMessage(messageId: string, actor: RequestUser) {
     const message = await this.messagesRepository.findById(messageId);
     if (!message) throw new NotFoundException('Message not found');
-    if (actor.role !== 'admin' && message.authorId !== actor.userId)
-      throw new ForbiddenException('Not your message');
+    if (actor.role !== 'admin') throw new ForbiddenException('Admins only');
     const deletedMessage =
       await this.messagesRepository.deleteMessage(messageId);
 

@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -29,9 +30,9 @@ export class AuthService {
   }
   async register(username: string, password: string) {
     if (!USERNAME_REGEX.test(username))
-      throw new UnauthorizedException('Invalid username');
+      throw new BadRequestException('Invalid username');
     if (!PASSWORD_REGEX.test(password))
-      throw new UnauthorizedException('Invalid password');
+      throw new BadRequestException('Invalid password');
     if (await this.userRepository.findByUsername(username))
       throw new ConflictException('Username already exists');
     const passwordHash = await bcrypt.hash(password, await bcrypt.genSalt(10));

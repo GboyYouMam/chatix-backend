@@ -4,7 +4,10 @@ describe('validateEnv', () => {
   const required = {
     DATABASE_URL: 'postgres://localhost/chatix',
     JWT_SECRET: 'x'.repeat(32),
+    IP_TAG_SECRET: 'y'.repeat(32),
     CORS_ORIGINS: 'http://localhost:5173',
+    MINIO_ACCESS_KEY: 'test-access',
+    MINIO_SECRET_KEY: 'test-secret',
   };
 
   it('requires a strong JWT secret', () => {

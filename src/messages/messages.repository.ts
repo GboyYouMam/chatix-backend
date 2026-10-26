@@ -144,6 +144,7 @@ export class MessagesRepository {
         .set({
           cipherText: 'GOT DELETED LMAO CRY ABOUT IT',
           attachmentUrl: 'https://c.tenor.com/XMRnHdhvVvcAAAAd/tenor.gif',
+          isDeleted: true,
         })
         .where(eq(scheme.messages.id, messageId))
         .returning();
@@ -157,6 +158,7 @@ export class MessagesRepository {
       limit: 100,
       with: {
         author: { columns: { id: true, username: true, isMogged: true } },
+        room: { columns: { id: true, title: true } },
       },
     });
   }

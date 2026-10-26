@@ -17,7 +17,11 @@ describe('MessagesController', () => {
       controller.createMessage(
         { roomId: 'room-id', cipherText: '' },
         { userId: 'user-id' } as any,
-        '127.0.0.1',
+        {
+          ip: '127.0.0.1',
+          headers: {},
+          socket: { remoteAddress: '127.0.0.1' },
+        } as any,
         files,
       ),
     ).resolves.toBe(message);

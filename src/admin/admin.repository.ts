@@ -79,7 +79,7 @@ export class AdminRepository {
   async quarantineRoom(roomId: string, reason: string) {
     const [room] = await this.db
       .update(scheme.rooms)
-      .set({ status: 'quarantined', quarantineReason: reason })
+      .set({ status: 'quarantined', statusReason: reason })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
     return room;
@@ -88,7 +88,7 @@ export class AdminRepository {
   async unquarantineRoom(roomId: string) {
     const [room] = await this.db
       .update(scheme.rooms)
-      .set({ status: 'active', quarantineReason: null, quarantinedUntil: null })
+      .set({ status: 'active', statusReason: null })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
     return room;

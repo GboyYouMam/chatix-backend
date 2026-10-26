@@ -41,12 +41,13 @@ export function toAdminRoom(
   room: typeof scheme.rooms.$inferSelect,
   messagesCount: number,
 ) {
-  const { quarantineReason, quarantinedUntil, ...publicRoom } =
-    toPublicRoom(room);
+  const { statusReason, ...publicRoom } = toPublicRoom(room, {
+    userId: room.creatorId,
+    role: 'admin',
+  });
   return {
     ...publicRoom,
-    quarantineReason,
-    quarantinedUntil: quarantinedUntil?.toISOString() ?? null,
+    statusReason,
     messagesCount,
   };
 }

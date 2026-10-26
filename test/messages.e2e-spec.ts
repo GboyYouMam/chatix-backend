@@ -3,7 +3,7 @@ import request from 'supertest';
 import { eq } from 'drizzle-orm';
 import * as schema from '../src/database/scheme';
 import { MessagesRepository } from '../src/messages/messages.repository';
-import { createTestApp, registerAndLogin } from './utils/test-app';
+import { createTestApp, makeAdmin, registerAndLogin } from './utils/test-app';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
 suite('Messages security and pagination (e2e)', () => {
@@ -132,5 +132,38 @@ suite('Messages security and pagination (e2e)', () => {
       where: eq(schema.messages.roomId, roomId),
     });
     expect(after).toHaveLength(before.length);
+  });
+
+  it('allows only admins to delete and keeps a tombstone in history', async () => {
+    const message = await request(app.getHttpServer())
+      .post('/messages')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ roomId, cipherText: 'delete me' })
+      .expect(201);
+    const messageId = (message.body as { id: string }).id;
+    await request(app.getHttpServer())
+      .delete(`/messages/${messageId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+
+    await makeAdmin(db, userId);
+    await request(app.getHttpServer())
+      .delete(`/admin/messages/${messageId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const history = await request(app.getHttpServer())
+      .get(`/messages/${roomId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const historyBody = history.body as {
+      items: { id: string; isDeleted: boolean; cipherText: string }[];
+    };
+    expect(historyBody.items).toContainEqual(
+      expect.objectContaining({
+        id: messageId,
+        isDeleted: true,
+        cipherText: 'GOT DELETED LMAO CRY ABOUT IT',
+      }),
+    );
   });
 });

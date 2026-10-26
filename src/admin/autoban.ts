@@ -1,6 +1,6 @@
 export const AUTOBAN_THRESHOLD = 3;
 export const AUTOBAN_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-export const AUTOBAN_REASON = 'автобан: 3 варни. ur cooked.';
+export const AUTOBAN_REASON = 'autoban: 3 warns. ur cooked.';
 
 export function computeAutoban(
   activeWarnings: number,
