@@ -16,6 +16,7 @@ import {
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
+import { recordAuraSnapshot } from '../widgets/aura-history';
 import { AUTOBAN_REASON, computeAutoban } from './autoban';
 
 export interface AdminPageOptions {
@@ -179,6 +180,12 @@ export class AdminRepository {
         .set(updates)
         .where(eq(scheme.users.id, userId))
         .returning();
+      if (
+        updatedUser &&
+        (auraDelta !== undefined || fields.aura !== undefined)
+      ) {
+        await recordAuraSnapshot(tx, userId, updatedUser.aura);
+      }
       return updatedUser;
     });
   }

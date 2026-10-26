@@ -25,6 +25,7 @@ import {
   FREE_ITEM_KEYS,
   slotAccepts,
 } from './equipment';
+import { recordAuraSnapshot } from '../widgets/aura-history';
 
 export interface InventoryEntry {
   itemKey: string;
@@ -185,6 +186,7 @@ export class ShopService {
           message: 'u broke. go farm.',
         });
       }
+      await recordAuraSnapshot(tx, userId, charged.aura);
 
       if (item.key === MYSTERY_SOAP_KEY) {
         return this.openMysterySoap(tx, userId, item, charged.aura);
@@ -220,6 +222,7 @@ export class ShopService {
         .set({ aura: sql`${schema.users.aura} + ${refund}` })
         .where(eq(schema.users.id, userId))
         .returning({ aura: schema.users.aura });
+      await recordAuraSnapshot(tx, userId, refunded.aura);
       return {
         aura: refunded.aura,
         inventory: await this.listInventory(tx, userId),

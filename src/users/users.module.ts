@@ -5,9 +5,10 @@ import { UsersRepository } from './users.repository';
 import { StorageModule } from '../storage/storage.module';
 import { AchievementsModule } from '../achievements/achievements.module';
 import { ShopModule } from '../shop/shop.module';
+import { WidgetsModule } from '../widgets/widgets.module';
 
 @Module({
-  imports: [StorageModule, AchievementsModule, ShopModule],
+  imports: [StorageModule, AchievementsModule, ShopModule, WidgetsModule],
   controllers: [UsersController],
   exports: [UsersService, UsersRepository],
   providers: [UsersService, UsersRepository],
