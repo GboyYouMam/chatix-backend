@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminService } from './admin.service';
 import { AdminRepository } from './admin.repository';
-import { UsersRepository } from '../auth/users.repository';
+import { UsersRepository } from '../users/users.repository';
 import { MessagesRepository } from '../messages/messages.repository';
 
 describe('AdminService', () => {

@@ -111,3 +111,7 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Tests
+
+Run unit tests with `npx jest`. E2E tests require a disposable PostgreSQL database in `DATABASE_URL_TEST`; they apply the repository migrations and truncate its tables between tests. Set this variable only to a dedicated test database.

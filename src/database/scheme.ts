@@ -19,7 +19,7 @@ export const Roles = pgEnum('role', ['user', 'admin']);
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   username: varchar('username', { length: 25 }).notNull().unique(),
-  password: varchar('password', { length: 255 }).notNull().unique(),
+  password: varchar('password', { length: 255 }).notNull(),
   role: Roles('role').notNull().default('user'),
   description: text('description'),
   vibe: varchar('vibe', { length: 50 }),
@@ -29,6 +29,9 @@ export const users = pgTable('users', {
   canChangeProfile: boolean('can_change_profile').default(true).notNull(),
   forcedTitle: varchar('forced_title', { length: 100 }),
   bannedUntil: timestamp('banned_until'),
+  tokenVersion: integer('token_version').default(0).notNull(),
+  banReason: text('ban_reason'),
+  autoBannedAt: timestamp('auto_banned_at'),
   yapCooldown: timestamp('yap_cooldown'),
   //some bullshit that i just want to do cuz i can (or idk who cares anyway)
   aura: integer('aura').default(1000).notNull(),
