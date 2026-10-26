@@ -1,28 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { randomUUID } from 'node:crypto';
+import { FightHitDto } from './dto/fight-hit.dto';
+import {
+  createPrompt,
+  HIT_COOLDOWN_MS,
+  MIN_REACTION_MS,
+  STUN_MS,
+  toPublicPrompt,
+} from './fight-prompt';
 import {
   CreateFightPayload,
   FightChallenge,
   JoinFightPayload,
   MatchState,
   PlayerState,
+  FightUpdate,
+  HitResult,
 } from './types/types';
 import { FightClubRepository } from './fight-club.repository';
 
 @Injectable()
 export class FightClubService {
-  private static readonly HIT_INTERVAL_MS = 150;
   private activeMatches = new Map<string, MatchState>();
   public server: Server;
   private logger = new Logger('FightClubService');
 
   constructor(private readonly fightClubRepository: FightClubRepository) {}
-
-  private getRandomKey(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    return chars.charAt(Math.floor(Math.random() * chars.length));
-  }
 
   createMatch(
     userId: string,
@@ -43,7 +47,7 @@ export class FightClubService {
       creator: username,
       player1: this.createPlayer(userId, ''),
       player2: this.createPlayer('', ''),
-      currentKey: '',
+      prompt: { promptId: '', key: '', sentAt: 0 },
       stakeType: payload.stakeType ?? 'aura',
       stakeAmount: payload.stakeAmount,
       status: 'LOBBY',
@@ -102,7 +106,7 @@ export class FightClubService {
         creator: payload.userId,
         player1: this.createPlayer(payload.userId, client.id),
         player2: this.createPlayer(payload.opponentId, ''),
-        currentKey: '',
+        prompt: { promptId: '', key: '', sentAt: 0 },
         stakeType: payload.stakeType ?? 'aura',
         stakeAmount,
         status: 'LOBBY',
@@ -127,53 +131,56 @@ export class FightClubService {
     if (match.player2.id === payload.userId) match.player2.socketId = client.id;
 
     if (match.status === 'FIGHTING') {
-      client.emit('fight:update', {
-        p1Hp: match.player1.hp,
-        p2Hp: match.player2.hp,
-        p1Combo: match.player1.combo,
-        p2Combo: match.player2.combo,
-        nextKey: match.currentKey,
-      });
+      client.emit('fight:update', this.toUpdate(match));
     }
 
     return true;
   }
 
   async handleHit(
-    client: Socket,
-    matchId: string,
     userId: string,
-    pressedKey: string,
-  ) {
-    const match = this.activeMatches.get(matchId);
+    socketId: string,
+    dto: FightHitDto,
+    now: number,
+  ): Promise<HitResult> {
+    const match = this.activeMatches.get(dto.matchId);
     if (!match || match.status !== 'FIGHTING') {
-      client.emit('fight:error', {
-        message:
-          'My fav what are u trying to do? This match not even existing gah dayum',
-      });
-      return;
+      return { kind: 'rejected', reason: 'no_match' };
     }
 
     const isPlayer1 = match.player1.id === userId;
-    if (!isPlayer1 && match.player2.id !== userId) return;
+    if (!isPlayer1 && match.player2.id !== userId) {
+      return { kind: 'rejected', reason: 'not_player' };
+    }
 
     const player = isPlayer1 ? match.player1 : match.player2;
     const enemy = isPlayer1 ? match.player2 : match.player1;
 
-    const now = Date.now();
-
-    if (now < player.stunnedUntil) return;
-
-    if (pressedKey.toUpperCase() !== match.currentKey) {
-      player.stunnedUntil = now + 1000;
-      player.combo = 0;
-
-      client.emit('fight:stun', { stunDuration: 1000 });
-      return;
+    if (socketId !== player.socketId) {
+      return { kind: 'rejected', reason: 'foreign_socket' };
+    }
+    if (now < player.stunnedUntil) {
+      return { kind: 'rejected', reason: 'stunned' };
+    }
+    if (now - player.lastHitAt < HIT_COOLDOWN_MS) {
+      return { kind: 'rejected', reason: 'cooldown' };
+    }
+    if (dto.promptId !== match.prompt.promptId) {
+      return { kind: 'rejected', reason: 'stale_prompt' };
     }
 
-    if (now - player.lastHitAt < FightClubService.HIT_INTERVAL_MS) return;
+    if (
+      now - match.prompt.sentAt < MIN_REACTION_MS ||
+      dto.k.toUpperCase() !== match.prompt.key
+    ) {
+      player.stunnedUntil = now + STUN_MS;
+      player.combo = 0;
+      return { kind: 'miss', stunMs: STUN_MS };
+    }
+
     player.lastHitAt = now;
+    player.hitTimestamps.push(now);
+    if (player.hitTimestamps.length > 11) player.hitTimestamps.shift();
 
     player.combo += 1;
     enemy.combo = 0;
@@ -191,21 +198,15 @@ export class FightClubService {
     if (enemy.hp === 0) {
       match.status = 'FIGHT_OVER';
       await this.finishMatch(match, player.id, enemy.id);
-      return;
+      return { kind: 'ko', update: this.toUpdate(match), winnerId: player.id };
     }
 
-    match.currentKey = this.getRandomKey();
-
-    this.server.to(matchId).emit('fight:update', {
-      p1Hp: match.player1.hp,
-      p2Hp: match.player2.hp,
-      p1Combo: match.player1.combo,
-      p2Combo: match.player2.combo,
-      nextKey: match.currentKey,
-      isCrit,
-      damage,
-      attackerId: player.id,
-    });
+    match.prompt = createPrompt(now, match.prompt.key);
+    const update = this.toUpdate(match);
+    update.isCrit = isCrit;
+    update.damage = damage;
+    update.attackerId = player.id;
+    return { kind: 'hit', update };
   }
 
   private async finishMatch(
@@ -272,10 +273,19 @@ export class FightClubService {
   }
 
   private createPlayer(id: string, socketId: string): PlayerState {
-    return { id, socketId, hp: 30, combo: 0, stunnedUntil: 0, lastHitAt: 0 };
+    return {
+      id,
+      username: '',
+      socketId,
+      hp: 30,
+      combo: 0,
+      stunnedUntil: 0,
+      lastHitAt: 0,
+      hitTimestamps: [],
+    };
   }
 
-  startMatch(matchId: string) {
+  startMatch(matchId: string, now = Date.now()) {
     const match = this.activeMatches.get(matchId);
     if (
       match &&
@@ -284,11 +294,29 @@ export class FightClubService {
       match.player2.id &&
       match.player2.socketId
     ) {
-      match.currentKey = this.getRandomKey();
+      match.prompt = createPrompt(now);
       match.status = 'FIGHTING';
       this.server
         .to(matchId)
-        .emit('fight:start', { firstKey: match.currentKey });
+        .emit('fight:start', {
+          matchId,
+          prompt: toPublicPrompt(match.prompt),
+        });
     }
+  }
+
+  private toUpdate(match: MatchState): FightUpdate {
+    return {
+      matchId: match.matchId,
+      hp: {
+        [match.player1.id]: match.player1.hp,
+        [match.player2.id]: match.player2.hp,
+      },
+      combo: {
+        [match.player1.id]: match.player1.combo,
+        [match.player2.id]: match.player2.combo,
+      },
+      prompt: toPublicPrompt(match.prompt),
+    };
   }
 }

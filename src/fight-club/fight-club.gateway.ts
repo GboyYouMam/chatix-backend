@@ -17,6 +17,7 @@ import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
 import { wsAuthError } from '../auth/ws-auth-error';
 import { socketUserData } from '../auth/socket-user';
 import { FightClubService } from './fight-club.service';
+import { FightHitDto } from './dto/fight-hit.dto';
 import type { CreateFightPayload, JoinFightPayload } from './types/types';
 
 @UseFilters(WsExceptionsFilter)
@@ -58,7 +59,7 @@ export class FightClubGateway
   @SubscribeMessage('fight:hit')
   async handleHit(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { matchId: string; k: string },
+    @MessageBody() payload: FightHitDto,
   ) {
     const { userId } = socketUserData(client);
 
@@ -69,12 +70,22 @@ export class FightClubGateway
       return;
     }
 
-    await this.fightClubService.handleHit(
-      client,
-      payload.matchId,
+    const result = await this.fightClubService.handleHit(
       userId,
-      payload.k,
+      client.id,
+      payload,
+      Date.now(),
     );
+    if (result.kind === 'miss') {
+      client.emit('fight:stun', { stunDuration: result.stunMs });
+    } else if (result.kind === 'ko') {
+      this.server.to(payload.matchId).emit('fight:update', result.update);
+      this.server.to(payload.matchId).emit('fight:game_over', {
+        winnerId: result.winnerId,
+      });
+    } else if (result.kind === 'hit') {
+      this.server.to(payload.matchId).emit('fight:update', result.update);
+    }
   }
 
   @SubscribeMessage('fight:join')

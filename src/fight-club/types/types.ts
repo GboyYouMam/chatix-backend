@@ -25,12 +25,45 @@ export interface FightChallenge {
 
 export interface PlayerState {
   id: string;
+  username: string;
   socketId: string;
   hp: number;
   combo: number;
   stunnedUntil: number;
   lastHitAt: number;
+  hitTimestamps: number[];
 }
+
+export interface FightPrompt {
+  promptId: string;
+  key: string;
+  sentAt: number;
+}
+
+export interface FightUpdate {
+  matchId: string;
+  hp: Record<string, number>;
+  combo: Record<string, number>;
+  prompt: { promptId: string; key: string };
+  isCrit?: boolean;
+  damage?: number;
+  attackerId?: string;
+}
+
+export type HitResult =
+  | {
+      kind: 'rejected';
+      reason:
+        | 'no_match'
+        | 'not_player'
+        | 'foreign_socket'
+        | 'stale_prompt'
+        | 'stunned'
+        | 'cooldown';
+    }
+  | { kind: 'miss'; stunMs: number }
+  | { kind: 'hit'; update: FightUpdate }
+  | { kind: 'ko'; update: FightUpdate; winnerId: string };
 export const FightStatus = {
   FIGHTING: 'fighting',
   FIGHT_OVER: 'fight_over',
@@ -44,7 +77,7 @@ export interface MatchState {
   creator: string;
   player1: PlayerState;
   player2: PlayerState;
-  currentKey: string;
+  prompt: FightPrompt;
   stakeType: StakeVaries;
   stakeAmount: number;
   status: FightStatus;

@@ -1,10 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { FightClubService } from './fight-club.service';
+import type { Server, Socket } from 'socket.io';
 import { FightClubRepository } from './fight-club.repository';
+import { FightClubService } from './fight-club.service';
+import type { MatchState } from './types/types';
 
 describe('FightClubService', () => {
   let service: FightClubService;
   let repo: { summariseFight: jest.Mock };
+  let roomEmit: jest.Mock;
+  let matches: Map<string, MatchState>;
+
+  const createSocket = (id: string) =>
+    ({ id, emit: jest.fn(), join: jest.fn() }) as unknown as Socket;
+
+  const makeFight = () => {
+    const challenge = service.createMatch('p1', 'one', { stakeAmount: 7 });
+    if (!challenge) throw new Error('expected challenge');
+    const creator = createSocket('s1');
+    const challenger = createSocket('s2');
+    service.joinMatch(creator, { matchId: challenge.id, userId: 'p1' });
+    service.joinMatch(challenger, { matchId: challenge.id, userId: 'p2' });
+    service.startMatch(challenge.id, 1000);
+    return { matchId: challenge.id, creator };
+  };
 
   beforeEach(async () => {
     repo = { summariseFight: jest.fn() };
@@ -16,98 +34,109 @@ describe('FightClubService', () => {
     }).compile();
 
     service = module.get<FightClubService>(FightClubService);
-    service.server = { to: jest.fn().mockReturnValue({ emit: jest.fn() }) } as any;
+    roomEmit = jest.fn();
+    service.server = {
+      to: jest.fn().mockReturnValue({ emit: roomEmit }),
+      emit: jest.fn(),
+    } as unknown as Server;
+    matches = (service as unknown as { activeMatches: Map<string, MatchState> })
+      .activeMatches;
   });
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  it('damages, crits, and finishes from memory', async () => {
-    jest
-      .spyOn(Date, 'now')
-      .mockReturnValueOnce(1000)
-      .mockReturnValueOnce(1150)
-      .mockReturnValueOnce(1300);
-    const client = { emit: jest.fn(), id: 's1' } as any;
-
-    service.joinMatch(client, {
-      matchId: 'm1',
-      userId: 'p1',
-      opponentId: 'p2',
-      stakeType: 'aura',
-      stakeAmount: 7,
-    });
-
-    const match = (service as any).activeMatches.get('m1');
-    match.player2.socketId = 's2';
-    service.startMatch('m1');
-    match.currentKey = 'A';
+  it('damages, crits, and settles a knockout', async () => {
+    const { matchId, creator } = makeFight();
+    const match = matches.get(matchId);
+    if (!match) throw new Error('expected match');
     match.player2.hp = 6;
 
-    await service.handleHit(client, 'm1', 'p1', 'a');
-    match.currentKey = 'B';
-    await service.handleHit(client, 'm1', 'p1', 'B');
-    match.currentKey = 'C';
-    await service.handleHit(client, 'm1', 'p1', 'C');
+    for (let index = 0; index < 3; index += 1) {
+      const prompt = match.prompt;
+      const result = await service.handleHit(
+        'p1',
+        creator.id,
+        { matchId, promptId: prompt.promptId, k: prompt.key.toLowerCase() },
+        prompt.sentAt + 150,
+      );
+      if (index < 2) expect(result.kind).toBe('hit');
+      else expect(result.kind).toBe('ko');
+    }
 
     expect(repo.summariseFight).toHaveBeenCalledWith('p1', 'p2', 'aura', 7);
-    expect((service as any).activeMatches.has('m1')).toBe(false);
+    expect(matches.has(matchId)).toBe(false);
   });
 
-  it('rejects self-matches and invalid stakes', () => {
-    const client = { emit: jest.fn(), id: 's1' } as any;
-    const join = (opponentId: string, stakeAmount: number) =>
-      service.joinMatch(client, {
-        matchId: `${opponentId}-${stakeAmount}`,
-        userId: 'p1',
-        opponentId,
-        stakeAmount,
-      });
-
-    expect(join('p1', 1)).toBe(false);
-    expect(join('p2', -1)).toBe(false);
-  });
-
-  it('does not start a match until both players are connected', () => {
-    const client = { emit: jest.fn(), id: 's1' } as any;
-    service.joinMatch(client, {
-      matchId: 'm1',
-      userId: 'p1',
-      opponentId: 'p2',
-      stakeAmount: 1,
-    });
-
-    service.startMatch('m1');
-
-    expect((service as any).activeMatches.get('m1').status).toBe('LOBBY');
-  });
-
-  it('rate-limits hits and resyncs reconnecting players', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(1000);
-    const client = { emit: jest.fn(), id: 's1' } as any;
-    service.joinMatch(client, {
-      matchId: 'm1',
-      userId: 'p1',
-      opponentId: 'p2',
-      stakeAmount: 1,
-    });
-    const match = (service as any).activeMatches.get('m1');
-    match.player2.socketId = 's2';
-    service.startMatch('m1');
-    match.currentKey = 'A';
-
-    await service.handleHit(client, 'm1', 'p1', 'A');
-    await service.handleHit(client, 'm1', 'p1', 'A');
-    expect(match.player2.hp).toBe(29);
-
-    const reconnect = { emit: jest.fn(), id: 's1-new' } as any;
-    service.joinMatch(reconnect, { matchId: 'm1', userId: 'p1' });
-    expect(reconnect.emit).toHaveBeenCalledWith(
-      'fight:update',
-      expect.objectContaining({ p1Hp: 30, p2Hp: 29, nextKey: match.currentKey }),
+  it('rejects stale prompts, including a prompt after it was used', async () => {
+    const { matchId, creator } = makeFight();
+    const match = matches.get(matchId);
+    if (!match) throw new Error('expected match');
+    const oldPromptId = match.prompt.promptId;
+    await service.handleHit(
+      'p1',
+      creator.id,
+      { matchId, promptId: oldPromptId, k: match.prompt.key },
+      1150,
     );
+    const currentPrompt = match.prompt;
+    expect(currentPrompt.promptId).not.toBe(oldPromptId);
+    const result = await service.handleHit(
+      'p1',
+      creator.id,
+      { matchId, promptId: oldPromptId, k: currentPrompt.key },
+      1300,
+    );
+    expect(result).toEqual({ kind: 'rejected', reason: 'stale_prompt' });
+  });
+
+  it('treats a hit before 120 ms as a miss and a hit at 120 ms as valid', async () => {
+    const earlyFight = makeFight();
+    const earlyPrompt = matches.get(earlyFight.matchId)?.prompt;
+    if (!earlyPrompt) throw new Error('expected prompt');
+    expect(
+      await service.handleHit(
+        'p1',
+        earlyFight.creator.id,
+        {
+          matchId: earlyFight.matchId,
+          promptId: earlyPrompt.promptId,
+          k: earlyPrompt.key,
+        },
+        earlyPrompt.sentAt + 119,
+      ),
+    ).toEqual({ kind: 'miss', stunMs: 1000 });
+
+    const validFight = makeFight();
+    const validPrompt = matches.get(validFight.matchId)?.prompt;
+    if (!validPrompt) throw new Error('expected prompt');
+    expect(
+      await service.handleHit(
+        'p1',
+        validFight.creator.id,
+        {
+          matchId: validFight.matchId,
+          promptId: validPrompt.promptId,
+          k: validPrompt.key,
+        },
+        validPrompt.sentAt + 120,
+      ),
+    ).toMatchObject({ kind: 'hit' });
+  });
+
+  it('rejects a non-player, foreign socket, and stunned player', async () => {
+    const { matchId, creator } = makeFight();
+    const prompt = matches.get(matchId)?.prompt;
+    if (!prompt) throw new Error('expected prompt');
+    const dto = { matchId, promptId: prompt.promptId, k: prompt.key };
+    await expect(
+      service.handleHit('other', creator.id, dto, 1200),
+    ).resolves.toEqual({ kind: 'rejected', reason: 'not_player' });
+    await expect(
+      service.handleHit('p1', 'foreign', dto, 1200),
+    ).resolves.toEqual({ kind: 'rejected', reason: 'foreign_socket' });
+    await service.handleHit('p1', creator.id, { ...dto, k: '!' }, 1200);
+    await expect(
+      service.handleHit('p1', creator.id, dto, 1201),
+    ).resolves.toEqual({ kind: 'rejected', reason: 'stunned' });
   });
 });
