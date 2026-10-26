@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:hash-room-passwords": "ts-node -r tsconfig-paths/register scripts/hash-room-passwords.ts",
+    "db:backfill-achievements": "ts-node -r tsconfig-paths/register scripts/backfill-achievements.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

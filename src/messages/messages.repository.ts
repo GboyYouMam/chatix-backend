@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { and, desc, eq, lt, or } from 'drizzle-orm';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -30,6 +30,29 @@ export class MessagesRepository {
     return this.db.query.rooms.findFirst({
       where: eq(scheme.rooms.id, roomId),
     });
+  }
+
+  async wasRoomSilentFor(roomId: string, milliseconds: number) {
+    const [message] = await this.db
+      .select({ createdAt: scheme.messages.createdAt })
+      .from(scheme.messages)
+      .where(eq(scheme.messages.roomId, roomId))
+      .orderBy(desc(scheme.messages.createdAt))
+      .limit(1);
+    if (message) return Date.now() - message.createdAt.getTime() >= milliseconds;
+    const [room] = await this.db
+      .select({ createdAt: scheme.rooms.createdAt })
+      .from(scheme.rooms)
+      .where(eq(scheme.rooms.id, roomId))
+      .limit(1);
+    return Boolean(room && Date.now() - room.createdAt.getTime() >= milliseconds);
+  }
+
+  async incrementMessageCount(userId: string) {
+    await this.db
+      .update(scheme.users)
+      .set({ messagesCount: sql`${scheme.users.messagesCount} + 1` })
+      .where(eq(scheme.users.id, userId));
   }
   async create(
     roomId: string,
@@ -72,6 +95,7 @@ export class MessagesRepository {
             username: true,
             pfp_url: true,
             forcedTitle: true,
+            featuredAchievements: true,
           },
         },
         attachments: true,
@@ -115,6 +139,7 @@ export class MessagesRepository {
             pfp_url: true,
             forcedTitle: true,
             isMogged: true,
+            featuredAchievements: true,
           },
         },
         attachments: true,

@@ -27,7 +27,10 @@ describe('FightClubRepository', () => {
       update: jest
         .fn()
         .mockReturnValueOnce(update([{ id: 'winner' }], setCalls))
-        .mockReturnValueOnce(update([{ id: 'loser' }], setCalls)),
+        .mockReturnValueOnce(update([{ id: 'loser' }], setCalls))
+        .mockReturnValueOnce(update([], setCalls))
+        .mockReturnValueOnce(update([], setCalls)),
+      insert: jest.fn(() => ({ values: jest.fn().mockResolvedValue([]) })),
     };
     const transaction = jest.fn((callback: (tx: typeof tx) => unknown) =>
       callback(tx),
@@ -35,11 +38,18 @@ describe('FightClubRepository', () => {
     const db = { transaction } as unknown as PostgresJsDatabase<typeof scheme>;
     const repository = new FightClubRepository(db);
 
-    await repository.settle('winner', 'loser', 'aura', 50);
+    await repository.settle(
+      'winner',
+      'loser',
+      'aura',
+      50,
+      { player1Id: 'winner', player2Id: 'loser' },
+      'ko',
+    );
 
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(tx.update).toHaveBeenCalledTimes(2);
-    expect(setCalls).toHaveLength(2);
+    expect(tx.update).toHaveBeenCalledTimes(4);
+    expect(setCalls).toHaveLength(4);
     const winnerAura = setCalls[0].aura;
     const loserAura = setCalls[1].aura;
     expect(winnerAura).toBeInstanceOf(SQL);
@@ -87,7 +97,14 @@ databaseSuite('FightClubRepository PostgreSQL', () => {
     if (!winner || !loser) throw new Error('expected test users');
 
     try {
-      await repository.settle(winner.id, loser.id, 'aura', 50);
+      await repository.settle(
+        winner.id,
+        loser.id,
+        'aura',
+        50,
+        { player1Id: winner.id, player2Id: loser.id },
+        'ko',
+      );
       const balances = await db
         .select({ id: scheme.users.id, aura: scheme.users.aura })
         .from(scheme.users)

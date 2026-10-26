@@ -12,6 +12,7 @@ type MessageRow = {
     pfp_url: string | null;
     forcedTitle: string | null;
     isMogged?: boolean;
+    featuredAchievements?: string[];
   } | null;
   attachments?: {
     id: string;
@@ -38,7 +39,7 @@ export function toPublicMessage(row: MessageRow, ipTag: string | null) {
           pfp_url: row.author.pfp_url,
           forcedTitle: row.author.forcedTitle,
           isMogged: row.author.isMogged ?? false,
-          featuredAchievements: [],
+          featuredAchievements: row.author.featuredAchievements ?? [],
         }
       : null,
     attachments: row.attachments ?? [],

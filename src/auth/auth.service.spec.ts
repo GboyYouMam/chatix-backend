@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { UsersRepository } from '../users/users.repository';
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service';
 jest.mock('bcrypt', () => ({
   genSalt: jest.fn(),
   hash: jest.fn(),
@@ -22,6 +23,10 @@ describe('AuthService', () => {
           AuthService,
           { provide: UsersRepository, useValue: repo },
           { provide: JwtService, useValue: jwt },
+          {
+            provide: UsersService,
+            useValue: { recordLogin: jest.fn().mockResolvedValue(undefined) },
+          },
         ],
       }).compile()
     ).get(AuthService);

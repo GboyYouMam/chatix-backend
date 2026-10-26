@@ -7,6 +7,8 @@ import {
   UseInterceptors,
   Param,
   UploadedFiles,
+  Patch,
+  Headers,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -18,6 +20,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateProfileCommentDto } from './dto/create-profile-comment.dto';
 import { PROFILE_IMAGE_POLICY } from '../storage/file-policy';
 import { SkipThrottle } from '@nestjs/throttler';
+import { AchievementsService } from '../achievements/achievements.service';
+import { FeaturedAchievementsDto } from '../achievements/achievements.controller';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -25,11 +29,23 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly storageService: StorageService,
+    private readonly achievements: AchievementsService,
   ) {}
 
   @Get('me')
-  async getProfile(@CurrentUser() user: RequestUser) {
-    return this.usersService.getUserProfile(user.userId);
+  async getProfile(
+    @CurrentUser() user: RequestUser,
+    @Headers('x-timezone') timezone?: string,
+  ) {
+    return this.usersService.getUserProfile(user.userId, timezone);
+  }
+
+  @Patch('me/featured-achievements')
+  async setFeaturedAchievements(
+    @CurrentUser() user: RequestUser,
+    @Body() body: FeaturedAchievementsDto,
+  ) {
+    return this.achievements.setFeatured(user.userId, body.keys ?? []);
   }
 
   @Get('profile/:username')

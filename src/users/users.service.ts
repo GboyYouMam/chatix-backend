@@ -9,15 +9,17 @@ import { StorageService } from '../storage/storage.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileFilesDTO } from './dto/profile-files.dto';
 import { assertAllowed, PROFILE_IMAGE_POLICY } from '../storage/file-policy';
+import { AchievementsService } from '../achievements/achievements.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly storageService: StorageService,
+    private readonly achievements: AchievementsService,
   ) {}
 
-  async getUserProfile(userId: string) {
+  async getUserProfile(userId: string, timezone?: string) {
     const user = await this.usersRepository.findById(userId);
 
     if (!user) {
@@ -26,11 +28,46 @@ export class UsersService {
 
     const respectCount = user.respectCount;
 
+    await this.recordLogin(userId, timezone);
+    const achievements = await this.usersRepository.findAchievements(userId);
     return {
       ...user,
+      achievements: achievements.map(({ key, unlockedAt }) => ({
+        key,
+        unlockedAt,
+      })),
+      featuredAchievements: user.featuredAchievements,
+      fightTitle:
+        user.fightTitleUntil && user.fightTitleUntil > new Date()
+          ? user.fightTitle
+          : null,
       respectCount,
       respect_count: respectCount,
     };
+  }
+
+  private isTimezone(value: string) {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async recordLogin(userId: string, timezone?: string) {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) return;
+    await this.achievements.evaluate(userId, 'login');
+    await this.usersRepository.updateLogin(
+      userId,
+      timezone && this.isTimezone(timezone)
+        ? timezone
+        : (user.timezone ?? undefined),
+    );
+    if (user.bannedUntil && user.bannedUntil <= new Date()) {
+      await this.achievements.grantSafely(userId, 'survivor');
+    }
   }
 
   async updateProfile(
@@ -114,16 +151,27 @@ export class UsersService {
       throw new NotFoundException('This user not found ughhhh');
     }
 
-    const [comments, hasRespected, activeWarnings] = await Promise.all([
-      this.usersRepository.findProfileComments(user.id),
-      viewerId
-        ? this.usersRepository.hasRespectedProfile(user.id, viewerId)
-        : false,
-      this.usersRepository.findActiveWarnings(user.id),
-    ]);
+    const [comments, hasRespected, activeWarnings, achievements] =
+      await Promise.all([
+        this.usersRepository.findProfileComments(user.id),
+        viewerId
+          ? this.usersRepository.hasRespectedProfile(user.id, viewerId)
+          : false,
+        this.usersRepository.findActiveWarnings(user.id),
+        this.usersRepository.findAchievements(user.id),
+      ]);
 
     return {
       ...user,
+      achievements: achievements.map(({ key, unlockedAt }) => ({
+        key,
+        unlockedAt,
+      })),
+      featuredAchievements: user.featuredAchievements,
+      fightTitle:
+        user.fightTitleUntil && user.fightTitleUntil > new Date()
+          ? user.fightTitle
+          : null,
       activeWarnings: activeWarnings.map(({ reason, createdAt }) => ({
         reason,
         createdAt: createdAt.toISOString(),
@@ -183,6 +231,7 @@ export class UsersService {
       profileUser.id,
       admirerId,
     );
+    await this.achievements.evaluate(profileUser.id, 'respect');
     return {
       message: respect.alreadyRespected
         ? 'Respect already given'
@@ -194,6 +243,7 @@ export class UsersService {
   async auraFarming(userId: string) {
     const newAura = await this.usersRepository.incrementAura(userId);
     if (newAura === undefined) throw new NotFoundException('User not found');
+    await this.achievements.evaluate(userId, 'aura');
 
     return {
       aura: newAura,
@@ -206,6 +256,10 @@ export class UsersService {
     if (!updated) throw new NotFoundException('User not found');
     if (!updated.paid)
       return { message: 'You have no debt, bro. Chill.', debt: 0 };
+    await this.achievements.evaluate(userId, 'debt');
+    if ((updated.debtPaidCount ?? 0) >= 100) {
+      await this.achievements.grantSafely(userId, 'debt_free');
+    }
     return {
       message: '-1 credit. Keep grinding, bum.',
       debt: updated?.debt,

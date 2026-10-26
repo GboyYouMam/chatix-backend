@@ -57,6 +57,15 @@ export class UsersRepository {
         password: false,
         tokenVersion: false,
         autoBannedAt: false,
+        debtPaidCount: false,
+        messagesCount: false,
+        auraFarmCount: false,
+        fightsWon: false,
+        fightsLost: false,
+        winStreak: false,
+        lossStreak: false,
+        lastSeenAt: false,
+        timezone: false,
       },
     });
   }
@@ -138,10 +147,29 @@ export class UsersRepository {
   async incrementAura(userId: string) {
     const [user] = await this.db
       .update(scheme.users)
-      .set({ aura: sql`${scheme.users.aura} + 1` })
+      .set({
+        aura: sql`${scheme.users.aura} + 1`,
+        auraFarmCount: sql`${scheme.users.auraFarmCount} + 1`,
+      })
       .where(eq(scheme.users.id, userId))
       .returning({ aura: scheme.users.aura });
     return user?.aura;
+  }
+
+  async updateLogin(userId: string, timezone?: string) {
+    return this.db
+      .update(scheme.users)
+      .set({ lastSeenAt: new Date(), ...(timezone ? { timezone } : {}) })
+      .where(eq(scheme.users.id, userId))
+      .returning({ lastSeenAt: scheme.users.lastSeenAt });
+  }
+
+  async findAchievements(userId: string) {
+    return this.db.query.userAchievements.findMany({
+      where: eq(scheme.userAchievements.userId, userId),
+      columns: { key: true, unlockedAt: true },
+      orderBy: (items, { asc }) => [asc(items.unlockedAt)],
+    });
   }
 
   async vaporizeUser(userId: string) {
@@ -171,12 +199,26 @@ export class UsersRepository {
   async payDebt(userId: string) {
     const [updatedUser] = await this.db
       .update(scheme.users)
-      .set({ debt: sql`${scheme.users.debt} - 1` })
+      .set({
+        debt: sql`${scheme.users.debt} - 1`,
+        debtPaidCount: sql`${scheme.users.debtPaidCount} + 1`,
+      })
       .where(and(eq(scheme.users.id, userId), sql`${scheme.users.debt} > 0`))
-      .returning({ id: scheme.users.id, debt: scheme.users.debt });
+      .returning({
+        id: scheme.users.id,
+        debt: scheme.users.debt,
+        debtPaidCount: scheme.users.debtPaidCount,
+      });
     if (updatedUser) return { ...updatedUser, paid: true };
     const user = await this.findById(userId);
-    return user ? { id: user.id, debt: user.debt, paid: false } : undefined;
+    return user
+      ? {
+          id: user.id,
+          debt: user.debt,
+          paid: false,
+          debtPaidCount: user.debtPaidCount,
+        }
+      : undefined;
   }
 
   async findProfileComments(profileUserId: string, limit = 50) {
