@@ -1,19 +1,5 @@
 export type StakeVaries = 'aura' | 'debt';
 
-export interface JoinFightPayload {
-  matchId: string;
-  userId: string;
-  opponentId?: string;
-  stakeType?: StakeVaries;
-  stakeAmount?: number;
-}
-
-export interface CreateFightPayload {
-  title: string;
-  stakeType?: StakeVaries;
-  stakeAmount: number;
-}
-
 export interface FightChallenge {
   id: string;
   creatorId: string;
@@ -27,11 +13,23 @@ export interface PlayerState {
   id: string;
   username: string;
   socketId: string;
+  joinedMatch: boolean;
   hp: number;
   combo: number;
   stunnedUntil: number;
   lastHitAt: number;
   hitTimestamps: number[];
+}
+
+export interface FightState {
+  matchId: string;
+  title: string;
+  status: 'lobby' | 'fighting' | 'fight_over';
+  role: 'creator' | 'challenger';
+  you: { id: string; username: string };
+  opponent: { id: string; username: string } | null;
+  stakeType: StakeVaries;
+  stakeAmount: number;
 }
 
 export interface FightPrompt {
@@ -74,17 +72,10 @@ export type FightStatus = keyof typeof FightStatus;
 export interface MatchState {
   matchId: string;
   title: string;
-  creator: string;
   player1: PlayerState;
   player2: PlayerState;
   prompt: FightPrompt;
   stakeType: StakeVaries;
   stakeAmount: number;
   status: FightStatus;
-}
-
-export interface FightJwtPayload {
-  sub: string;
-  username: string;
-  role: string;
 }

@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Server, Socket } from 'socket.io';
+import { WsException } from '@nestjs/websockets';
 import { randomUUID } from 'node:crypto';
+import { Server } from 'socket.io';
+import { RequestUser } from '../auth/dto/request-user.dto';
+import { FightClubRepository } from './fight-club.repository';
+import { FightCreateDto } from './dto/fight-create.dto';
 import { FightHitDto } from './dto/fight-hit.dto';
+import { FightJoinDto } from './dto/fight-join.dto';
 import {
   createPrompt,
   HIT_COOLDOWN_MS,
@@ -11,19 +16,23 @@ import {
   toPublicPrompt,
 } from './fight-prompt';
 import {
-  CreateFightPayload,
   FightChallenge,
-  JoinFightPayload,
-  MatchState,
-  PlayerState,
+  FightState,
   FightUpdate,
   HitResult,
+  MatchState,
+  PlayerState,
 } from './types/types';
-import { FightClubRepository } from './fight-club.repository';
+
+const LOBBY_GRACE_MS = 10_000;
 
 @Injectable()
 export class FightClubService {
   private activeMatches = new Map<string, MatchState>();
+  private lobbyGraceTimers = new Map<
+    string,
+    { timer: ReturnType<typeof setTimeout>; socketId: string }
+  >();
   private suspiciousCadenceLogged = new Set<string>();
   public server: Server;
   private logger = new Logger('FightClubService');
@@ -31,112 +40,78 @@ export class FightClubService {
   constructor(private readonly fightClubRepository: FightClubRepository) {}
 
   createMatch(
-    userId: string,
-    username: string,
-    payload: CreateFightPayload,
-  ): FightChallenge | null {
-    if (
-      !Number.isInteger(payload.stakeAmount) ||
-      payload.stakeAmount <= 0 ||
-      (payload.stakeType && !['aura', 'debt'].includes(payload.stakeType))
-    ) {
-      return null;
-    }
-
+    user: RequestUser,
+    socketId: string,
+    payload: FightCreateDto,
+  ): FightChallenge {
     const match: MatchState = {
       matchId: randomUUID(),
-      title: payload.title?.trim() || 'nameless basement duel',
-      creator: username,
-      player1: this.createPlayer(userId, ''),
-      player2: this.createPlayer('', ''),
+      title: payload.title.trim() || 'nameless basement duel',
+      player1: this.createPlayer(user.userId, user.username, socketId),
+      player2: this.createPlayer('', '', ''),
       prompt: { promptId: '', key: '', sentAt: 0 },
-      stakeType: payload.stakeType ?? 'aura',
+      stakeType: payload.stakeType,
       stakeAmount: payload.stakeAmount,
       status: 'LOBBY',
     };
     this.activeMatches.set(match.matchId, match);
+    this.logger.log(
+      JSON.stringify({
+        event: 'fight.match.created',
+        matchId: match.matchId,
+        userId: user.userId,
+      }),
+    );
     return this.toChallenge(match);
   }
 
-  listChallenges() {
+  listChallenges(): FightChallenge[] {
     return [...this.activeMatches.values()]
       .filter((match) => match.status === 'LOBBY' && !match.player2.id)
       .map((match) => this.toChallenge(match));
   }
 
-  private toChallenge(match: MatchState): FightChallenge {
-    return {
-      id: match.matchId,
-      creatorId: match.player1.id,
-      creator: match.creator,
-      title: match.title,
-      stakeType: match.stakeType,
-      stakeAmount: match.stakeAmount,
-    };
+  joinMatch(
+    user: RequestUser,
+    socketId: string,
+    payload: FightJoinDto,
+  ): FightState {
+    const match = this.activeMatches.get(payload.matchId);
+    if (!match) throw new WsException('match not found. it got cooked.');
+
+    if (match.player1.id === user.userId) {
+      match.player1.socketId = socketId;
+      match.player1.joinedMatch = true;
+      this.clearLobbyGrace(user.userId, match.matchId);
+    } else if (match.player2.id === user.userId) {
+      match.player2.socketId = socketId;
+      match.player2.joinedMatch = true;
+      this.clearLobbyGrace(user.userId, match.matchId);
+    } else if (match.status === 'LOBBY' && !match.player2.id) {
+      match.player2 = this.createPlayer(
+        user.userId,
+        user.username,
+        socketId,
+        true,
+      );
+      this.clearLobbyGrace(user.userId, match.matchId);
+      this.server?.emit('fight:challenge_removed', { matchId: match.matchId });
+    } else {
+      throw new WsException('fight is full');
+    }
+
+    return this.toFightState(match, user.userId);
   }
 
-  joinMatch(client: Socket, payload: JoinFightPayload) {
-    let match = this.activeMatches.get(payload.matchId);
-
-    if (!match) {
-      if (!payload.opponentId) {
-        client.emit('fight:error', { message: 'Missing opponent' });
-        return false;
-      }
-      if (payload.opponentId === payload.userId) {
-        client.emit('fight:error', {
-          message:
-            'dum why are u trying to fight urself? U think u are Tyler Durden?',
-        });
-        return false;
-      }
-      const stakeAmount = payload.stakeAmount;
-      if (
-        typeof stakeAmount !== 'number' ||
-        !Number.isInteger(stakeAmount) ||
-        stakeAmount <= 0
-      ) {
-        client.emit('fight:error', {
-          message: 'Stake amount must be a positive integer',
-        });
-        return false;
-      }
-
-      match = {
-        matchId: payload.matchId,
-        title: 'basement duel',
-        creator: payload.userId,
-        player1: this.createPlayer(payload.userId, client.id),
-        player2: this.createPlayer(payload.opponentId, ''),
-        prompt: { promptId: '', key: '', sentAt: 0 },
-        stakeType: payload.stakeType ?? 'aura',
-        stakeAmount,
-        status: 'LOBBY',
-      };
-      this.activeMatches.set(payload.matchId, match);
-    }
-
-    if (match.player2.id === '' && match.player1.id !== payload.userId) {
-      match.player2 = this.createPlayer(payload.userId, client.id);
-      this.server?.emit('fight:challenge_removed', { matchId: match.matchId });
-    }
-
+  getFightState(userId: string, matchId: string): FightState | undefined {
+    const match = this.activeMatches.get(matchId);
     if (
-      match.player1.id !== payload.userId &&
-      match.player2.id !== payload.userId
+      !match ||
+      (match.player1.id !== userId && match.player2.id !== userId)
     ) {
-      client.emit('fight:error', { message: 'You are not in this fight' });
-      return false;
+      return undefined;
     }
-
-    if (match.player1.id === payload.userId) match.player1.socketId = client.id;
-    if (match.player2.id === payload.userId) match.player2.socketId = client.id;
-
-    if (match.status === 'FIGHTING') {
-      client.emit('fight:update', this.toUpdate(match));
-    }
-
-    return true;
+    return this.toFightState(match, userId);
   }
 
   async handleHit(
@@ -157,7 +132,6 @@ export class FightClubService {
 
     const player = isPlayer1 ? match.player1 : match.player2;
     const enemy = isPlayer1 ? match.player2 : match.player1;
-
     if (socketId !== player.socketId) {
       return { kind: 'rejected', reason: 'foreign_socket' };
     }
@@ -202,26 +176,23 @@ export class FightClubService {
     enemy.combo = 0;
     let damage = 1;
     let isCrit = false;
-
     if (player.combo === 3) {
       damage = 5;
       isCrit = true;
       player.combo = 0;
     }
-
     enemy.hp = Math.max(0, enemy.hp - damage);
-
-    if (enemy.hp === 0) {
-      match.status = 'FIGHT_OVER';
-      await this.finishMatch(match, player.id, enemy.id);
-      return { kind: 'ko', update: this.toUpdate(match), winnerId: player.id };
-    }
-
     match.prompt = createPrompt(now, match.prompt.key);
     const update = this.toUpdate(match);
     update.isCrit = isCrit;
     update.damage = damage;
     update.attackerId = player.id;
+
+    if (enemy.hp === 0) {
+      match.status = 'FIGHT_OVER';
+      await this.finishMatch(match, player.id, enemy.id);
+      return { kind: 'ko', update, winnerId: player.id };
+    }
     return { kind: 'hit', update };
   }
 
@@ -229,6 +200,7 @@ export class FightClubService {
     match: MatchState,
     winnerId: string,
     loserId: string,
+    emitGameOver = false,
   ) {
     const { stakeType, stakeAmount, matchId } = match;
     try {
@@ -238,69 +210,59 @@ export class FightClubService {
         stakeType,
         stakeAmount,
       );
-      this.server.to(matchId).emit('fight:game_over', {
-        winnerId,
-        loserId,
-        stakeType,
-        stakeAmount,
-      });
-    } catch (e) {
-      this.logger.error(e);
+      this.logger.log(
+        JSON.stringify({
+          event: 'fight.match.finished',
+          matchId,
+          winnerId,
+          stakeType,
+          stakeAmount,
+        }),
+      );
+      if (emitGameOver) {
+        this.server.to(matchId).emit('fight:game_over', {
+          winnerId,
+          loserId,
+          stakeType,
+          stakeAmount,
+        });
+      }
+    } catch (error) {
+      this.logger.error(error);
     } finally {
       this.activeMatches.delete(matchId);
-      this.suspiciousCadenceLogged.delete(`${matchId}:${match.player1.id}`);
-      this.suspiciousCadenceLogged.delete(`${matchId}:${match.player2.id}`);
+      this.clearCadence(match);
     }
   }
 
   async handlePlayerDisconnect(userId: string, socketId: string) {
     for (const [matchId, match] of this.activeMatches.entries()) {
-      if (
-        match.status === 'LOBBY' &&
-        ((match.player1.id === userId && match.player1.socketId === socketId) ||
-          (match.player2.id === userId && match.player2.socketId === socketId))
-      ) {
-        this.activeMatches.delete(matchId);
-        this.server?.emit('fight:challenge_removed', { matchId });
-        this.server?.to(matchId).emit('fight:cancelled', {
-          reason: 'opponent_left',
+      const player = [match.player1, match.player2].find(
+        (candidate) => candidate.id === userId,
+      );
+      if (!player || player.socketId !== socketId) continue;
+      if (match.status === 'LOBBY') {
+        player.joinedMatch = false;
+        this.scheduleLobbyGrace(userId, matchId, socketId);
+      } else if (match.status === 'FIGHTING') {
+        const winner =
+          match.player1.id === userId ? match.player2 : match.player1;
+        this.logger.log(
+          JSON.stringify({
+            event: 'fight.match.rage_quit',
+            matchId,
+            leaverId: userId,
+          }),
+        );
+        this.server.to(matchId).emit('fight:rage_quit', {
+          leaverId: userId,
+          message: 'Opponent disconnected. FLAAAWLESS VICTORY.',
         });
-      }
-
-      if (match.status === 'FIGHTING') {
-        if (
-          (match.player1.id === userId && match.player1.socketId === socketId) ||
-          (match.player2.id === userId && match.player2.socketId === socketId)
-        ) {
-          const isPlayer1 = match.player1.id === userId;
-
-          const loserId = userId;
-          const winnerId = isPlayer1 ? match.player2 : match.player1;
-
-          this.server.to(matchId).emit('fight:rage_quit', {
-            leaverId: loserId,
-            message: 'Opponent disconnected. FLAAAWLESS VICTORY.',
-          });
-
-          match.status = 'FIGHT_OVER';
-          await this.finishMatch(match, winnerId.id, loserId);
-          return;
-        }
+        match.status = 'FIGHT_OVER';
+        await this.finishMatch(match, winner.id, userId, true);
+        return;
       }
     }
-  }
-
-  private createPlayer(id: string, socketId: string): PlayerState {
-    return {
-      id,
-      username: '',
-      socketId,
-      hp: 30,
-      combo: 0,
-      stunnedUntil: 0,
-      lastHitAt: 0,
-      hitTimestamps: [],
-    };
   }
 
   startMatch(matchId: string, now = Date.now()) {
@@ -309,18 +271,127 @@ export class FightClubService {
       match &&
       match.status === 'LOBBY' &&
       match.player1.socketId &&
+      match.player1.joinedMatch &&
       match.player2.id &&
-      match.player2.socketId
+      match.player2.socketId &&
+      match.player2.joinedMatch
     ) {
       match.prompt = createPrompt(now);
       match.status = 'FIGHTING';
-      this.server
-        .to(matchId)
-        .emit('fight:start', {
-          matchId,
-          prompt: toPublicPrompt(match.prompt),
-        });
+      this.logger.log(
+        JSON.stringify({ event: 'fight.match.started', matchId }),
+      );
+      this.server.to(matchId).emit('fight:start', {
+        matchId,
+        prompt: toPublicPrompt(match.prompt),
+      });
     }
+  }
+
+  private scheduleLobbyGrace(
+    userId: string,
+    matchId: string,
+    socketId: string,
+  ) {
+    this.clearLobbyGrace(userId, matchId);
+    const key = `${userId}:${matchId}`;
+    const timer = setTimeout(() => {
+      void this.expireLobbyChallenge(userId, matchId, socketId).catch(
+        (error: unknown) => this.logger.error(error),
+      );
+    }, LOBBY_GRACE_MS);
+    this.lobbyGraceTimers.set(key, { timer, socketId });
+  }
+
+  private async expireLobbyChallenge(
+    userId: string,
+    matchId: string,
+    socketId: string,
+  ) {
+    const key = `${userId}:${matchId}`;
+    if (this.lobbyGraceTimers.get(key)?.socketId !== socketId) return;
+    this.lobbyGraceTimers.delete(key);
+    const sockets = await this.server.in(`user:${userId}`).fetchSockets();
+    if (sockets.length > 0) return;
+
+    const match = this.activeMatches.get(matchId);
+    const player = match
+      ? [match.player1, match.player2].find(
+          (candidate) => candidate.id === userId,
+        )
+      : undefined;
+    if (match?.status !== 'LOBBY' || player?.socketId !== socketId) return;
+    this.activeMatches.delete(matchId);
+    this.clearCadence(match);
+    this.server.emit('fight:challenge_removed', { matchId });
+    this.server
+      .to(matchId)
+      .emit('fight:cancelled', { reason: 'opponent_left' });
+  }
+
+  private clearLobbyGrace(userId: string, matchId: string) {
+    const key = `${userId}:${matchId}`;
+    const pending = this.lobbyGraceTimers.get(key);
+    if (pending) clearTimeout(pending.timer);
+    this.lobbyGraceTimers.delete(key);
+  }
+
+  private clearCadence(match: MatchState) {
+    this.suspiciousCadenceLogged.delete(`${match.matchId}:${match.player1.id}`);
+    this.suspiciousCadenceLogged.delete(`${match.matchId}:${match.player2.id}`);
+  }
+
+  private toFightState(match: MatchState, userId: string): FightState {
+    const creator = match.player1.id === userId;
+    const you = creator ? match.player1 : match.player2;
+    const opponent = creator ? match.player2 : match.player1;
+    return {
+      matchId: match.matchId,
+      title: match.title,
+      status:
+        match.status === 'LOBBY'
+          ? 'lobby'
+          : match.status === 'FIGHTING'
+            ? 'fighting'
+            : 'fight_over',
+      role: creator ? 'creator' : 'challenger',
+      you: { id: you.id, username: you.username },
+      opponent: opponent.id
+        ? { id: opponent.id, username: opponent.username }
+        : null,
+      stakeType: match.stakeType,
+      stakeAmount: match.stakeAmount,
+    };
+  }
+
+  private toChallenge(match: MatchState): FightChallenge {
+    return {
+      id: match.matchId,
+      creatorId: match.player1.id,
+      creator: match.player1.username,
+      title: match.title,
+      stakeType: match.stakeType,
+      stakeAmount: match.stakeAmount,
+    };
+  }
+
+  private createPlayer(
+    id: string,
+    username: string,
+    socketId: string,
+    joinedMatch = false,
+  ): PlayerState {
+    return {
+      id,
+      username,
+      socketId,
+      joinedMatch,
+      hp: 30,
+      combo: 0,
+      stunnedUntil: 0,
+      lastHitAt: 0,
+      hitTimestamps: [],
+    };
   }
 
   private toUpdate(match: MatchState): FightUpdate {

@@ -1,30 +1,29 @@
 import {
-  WebSocketGateway,
-  SubscribeMessage,
-  MessageBody,
   ConnectedSocket,
-  WebSocketServer,
+  MessageBody,
   OnGatewayConnection,
-  OnGatewayInit,
   OnGatewayDisconnect,
+  OnGatewayInit,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
+import { UseFilters, UsePipes } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { UseFilters, UsePipes } from '@nestjs/common';
 import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
 import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
 import { wsAuthError } from '../auth/ws-auth-error';
 import { socketUserData } from '../auth/socket-user';
 import { FightClubService } from './fight-club.service';
+import { FightCreateDto } from './dto/fight-create.dto';
 import { FightHitDto } from './dto/fight-hit.dto';
-import type { CreateFightPayload, JoinFightPayload } from './types/types';
+import { FightJoinDto } from './dto/fight-join.dto';
 
 @UseFilters(WsExceptionsFilter)
 @UsePipes(wsValidationPipe)
-@WebSocketGateway({
-  namespace: '/fight-club',
-})
+@WebSocketGateway({ namespace: '/fight-club' })
 export class FightClubGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
@@ -45,9 +44,6 @@ export class FightClubGateway
   async handleConnection(client: Socket) {
     try {
       const user = await this.auth.authenticate(client);
-      const data = socketUserData(client);
-      data.userId = user.userId;
-      data.username = user.username;
       await client.join(`user:${user.userId}`);
       client.emit('fight:challenges', this.fightClubService.listChallenges());
     } catch (error) {
@@ -61,17 +57,10 @@ export class FightClubGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: FightHitDto,
   ) {
-    const { userId } = socketUserData(client);
-
-    if (!userId || !payload?.matchId || !payload?.k) {
-      client.emit('fight:error', {
-        message: 'ayo how did u lost THAT important data, are we deadass????',
-      });
-      return;
-    }
-
+    const user = socketUserData(client).user;
+    if (!user) return;
     const result = await this.fightClubService.handleHit(
-      userId,
+      user.userId,
       client.id,
       payload,
       Date.now(),
@@ -91,48 +80,32 @@ export class FightClubGateway
   @SubscribeMessage('fight:join')
   async handleJoin(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: Omit<JoinFightPayload, 'userId'>,
+    @MessageBody() payload: FightJoinDto,
   ) {
-    const { userId } = socketUserData(client);
-
-    if (!userId || !payload?.matchId) {
-      client.emit('fight:error', { message: 'Missing game data' });
-      return;
-    }
-
-    const joined = this.fightClubService.joinMatch(client, {
-      ...payload,
-      userId,
-    });
-    if (joined) {
-      await client.join(payload.matchId);
-      this.fightClubService.startMatch(payload.matchId);
-    }
+    const user = socketUserData(client).user;
+    if (!user) return;
+    const state = this.fightClubService.joinMatch(user, client.id, payload);
+    await client.join(payload.matchId);
+    this.fightClubService.startMatch(payload.matchId);
+    client.emit(
+      'fight:state',
+      this.fightClubService.getFightState(user.userId, payload.matchId) ??
+        state,
+    );
   }
 
   @SubscribeMessage('fight:create')
   handleCreate(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: CreateFightPayload,
+    @MessageBody() payload: FightCreateDto,
   ) {
-    const { userId, username } = socketUserData(client);
-    if (!userId) {
-      client.emit('fight:error', { message: 'Missing user data' });
-      return;
-    }
-
+    const user = socketUserData(client).user;
+    if (!user) return;
     const challenge = this.fightClubService.createMatch(
-      userId,
-      username ?? '',
+      user,
+      client.id,
       payload,
     );
-    if (!challenge) {
-      client.emit('fight:error', {
-        message: 'Stake amount must be a positive integer',
-      });
-      return;
-    }
-
     this.server.emit(
       'fight:challenges',
       this.fightClubService.listChallenges(),
@@ -142,7 +115,7 @@ export class FightClubGateway
   }
 
   async handleDisconnect(client: Socket) {
-    const { userId } = socketUserData(client);
+    const userId = socketUserData(client).user?.userId;
     if (userId) {
       await this.fightClubService.handlePlayerDisconnect(userId, client.id);
     }
