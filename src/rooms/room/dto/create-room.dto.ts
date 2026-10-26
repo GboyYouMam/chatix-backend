@@ -1,10 +1,12 @@
 import {
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { ROOM_THEMES } from '../room-themes';
 
 export class CreateRoomDTO {
   @IsString({ message: 'Title must be a string' })
@@ -32,4 +34,8 @@ export class CreateRoomDTO {
   })
   @IsNotEmpty({ message: 'Publicity must be specified' })
   publicity: 'public' | 'private';
+
+  @IsOptional()
+  @IsIn([...ROOM_THEMES], { message: 'no such theme, chud.' })
+  theme?: string;
 }

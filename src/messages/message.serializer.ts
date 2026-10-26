@@ -6,6 +6,7 @@ type MessageRow = {
   cipherText: string;
   createdAt: Date;
   isDeleted: boolean;
+  kind?: string;
   ipAddress: string | null;
   attachmentUrl?: string | null;
   author?: {
@@ -45,6 +46,7 @@ export function toPublicMessage(
     cipherText: row.cipherText,
     createdAt: row.createdAt,
     isDeleted: row.isDeleted,
+    kind: row.kind ?? 'user',
     ipTag,
     author: row.author
       ? {

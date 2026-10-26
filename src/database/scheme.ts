@@ -329,7 +329,7 @@ export const adminAuditLogs = pgTable(
 );
 
 export const usersRelations = relations(users, ({ many }) => ({
-  rooms: many(rooms),
+  rooms: many(rooms, { relationName: 'roomCreator' }),
   messages: many(messages),
   warnings: many(userWarnings, { relationName: 'warnedUser' }),
   warningsIssued: many(userWarnings, { relationName: 'warningAdmin' }),
@@ -381,7 +381,20 @@ export const profileRespectsRelations = relations(
 );
 
 export const roomsRelations = relations(rooms, ({ one, many }) => ({
-  creator: one(users, { fields: [rooms.creatorId], references: [users.id] }),
+  creator: one(users, {
+    fields: [rooms.creatorId],
+    references: [users.id],
+    relationName: 'roomCreator',
+  }),
+  sponsor: one(users, {
+    fields: [rooms.sponsoredById],
+    references: [users.id],
+    relationName: 'roomSponsor',
+  }),
+  spotlightMessage: one(messages, {
+    fields: [rooms.spotlightMessageId],
+    references: [messages.id],
+  }),
   messages: many(messages),
 }));
 

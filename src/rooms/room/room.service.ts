@@ -12,6 +12,7 @@ import { toPublicRoom } from './room.serializer';
 import { RoomsRepository } from './rooms.repository';
 import { AchievementsService } from '../../achievements/achievements.service';
 import { AdminAuditContext } from '../../admin/audit-context';
+import { DEFAULT_ROOM_THEME } from './room-themes';
 
 @Injectable()
 export class RoomService {
@@ -37,9 +38,26 @@ export class RoomService {
     );
   }
 
+  // Free themes need no ownership; the rest must be bought (and fight club
+  // also needs the basement achievement).
+  private async assertThemeUnlocked(userId: string, theme: string | undefined) {
+    if (!theme || theme === DEFAULT_ROOM_THEME) return;
+    const owned = await this.roomsRepository.ownsItem(userId, `theme_${theme}`);
+    const achievementOk =
+      theme !== 'fight_club' ||
+      (await this.roomsRepository.hasAchievement(userId, 'found_the_basement'));
+    if (!owned || !achievementOk) {
+      throw new ForbiddenException({
+        code: 'THEME_LOCKED',
+        message: 'theme locked. buy it first, chud.',
+      });
+    }
+  }
+
   async createRoom(creatorId: string, data: CreateRoomDTO) {
     const user = await this.roomsRepository.getUserValidationData(creatorId);
     if (!user) throw new NotFoundException('User not found');
+    await this.assertThemeUnlocked(creatorId, data.theme);
 
     if (user.bannedUntil && new Date(user.bannedUntil) > new Date()) {
       throw new ForbiddenException(
@@ -149,6 +167,7 @@ export class RoomService {
         "Hell nah, u'r not the owner of this room tf are u doin",
       );
     }
+    await this.assertThemeUnlocked(userId, data.theme);
     const update = {
       ...data,
       ...(data.password && { password: await bcrypt.hash(data.password, 10) }),

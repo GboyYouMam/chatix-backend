@@ -12,6 +12,8 @@ import type { Db, DbOrTx } from '../database/database.types';
 import * as schema from '../database/scheme';
 import type { UseItemDto } from './dto/use-item.dto';
 import type { InventoryEntry } from './shop.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { toPublicMessage } from '../messages/message.serializer';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -43,16 +45,29 @@ export interface UseResult {
   inventory: InventoryEntry[];
 }
 
+// A room-facing effect that posts a system line and a roomNotice after commit.
+interface RoomNotice {
+  roomId: string;
+  kind: 'aura_tax' | 'room_boost' | 'spotlight';
+  text: string;
+  messageId: string;
+}
+
 @Injectable()
 export class ConsumablesService {
-  constructor(@Inject(DB_CONNECTION) private readonly db: Db) {}
+  constructor(
+    @Inject(DB_CONNECTION) private readonly db: Db,
+    private readonly realtime: RealtimeService,
+  ) {}
 
   // Every branch runs in one transaction: the inventory decrement (conditional
   // on quantity >= 1) and the effect commit or roll back together, so two
-  // concurrent uses of the last item cannot both apply.
+  // concurrent uses of the last item cannot both apply. Room notices are
+  // emitted only after the commit.
   async use(userId: string, dto: UseItemDto): Promise<UseResult> {
     const key = dto.itemKey as UsableItemKey;
-    return this.db.transaction(async (tx) => {
+    const { inventory, notice } = await this.db.transaction(async (tx) => {
+      let notice: RoomNotice | undefined;
       switch (key) {
         case 'clown_stamp':
         case 'rename_curse':
@@ -60,10 +75,10 @@ export class ConsumablesService {
           break;
         case 'aura_tax':
         case 'room_boost':
-          await this.boostRoom(tx, userId, key, dto.roomId);
+          notice = await this.boostRoom(tx, userId, key, dto.roomId);
           break;
         case 'spotlight':
-          await this.spotlightMessage(tx, userId, dto.messageId);
+          notice = await this.spotlightMessage(tx, userId, dto.messageId);
           break;
         case 'fight_insurance':
           await this.armInsurance(tx, userId);
@@ -78,8 +93,62 @@ export class ConsumablesService {
             .where(eq(schema.users.id, userId));
           break;
       }
-      return { inventory: await this.listInventory(tx, userId) };
+      return { inventory: await this.listInventory(tx, userId), notice };
     });
+    if (notice) await this.announce(notice);
+    return { inventory };
+  }
+
+  private async announce(notice: RoomNotice) {
+    const message = await this.db.query.messages.findFirst({
+      where: eq(schema.messages.id, notice.messageId),
+      with: {
+        author: {
+          columns: {
+            id: true,
+            username: true,
+            pfp_url: true,
+            forcedTitle: true,
+            isMogged: true,
+            featuredAchievements: true,
+          },
+        },
+        attachments: true,
+      },
+    });
+    if (message) {
+      this.realtime.emitToRoom(
+        notice.roomId,
+        'newMessage',
+        toPublicMessage(message, null),
+      );
+    }
+    this.realtime.emitToRoom(notice.roomId, 'roomNotice', {
+      roomId: notice.roomId,
+      text: notice.text,
+      kind: notice.kind,
+    });
+  }
+
+  private async insertSystemMessage(
+    tx: DbOrTx,
+    roomId: string,
+    actorId: string,
+    text: string,
+  ): Promise<string> {
+    const [row] = await tx
+      .insert(schema.messages)
+      .values({ roomId, authorId: actorId, cipherText: text, kind: 'system' })
+      .returning({ id: schema.messages.id });
+    return row.id;
+  }
+
+  private async actorName(tx: DbOrTx, actorId: string): Promise<string> {
+    const [actor] = await tx
+      .select({ username: schema.users.username })
+      .from(schema.users)
+      .where(eq(schema.users.id, actorId));
+    return actor?.username ?? 'someone';
   }
 
   private async applyProfileEffect(
@@ -147,7 +216,7 @@ export class ConsumablesService {
     actorId: string,
     kind: 'aura_tax' | 'room_boost',
     roomId: string | undefined,
-  ) {
+  ): Promise<RoomNotice> {
     if (!roomId) {
       throw new BadRequestException({
         code: 'ROOM_REQUIRED',
@@ -180,6 +249,7 @@ export class ConsumablesService {
 
     await this.consume(tx, actorId, kind);
     const now = Date.now();
+    const name = await this.actorName(tx, actorId);
     if (kind === 'aura_tax') {
       const from = Math.max(now, room.sponsoredUntil?.getTime() ?? 0);
       await tx
@@ -196,13 +266,23 @@ export class ConsumablesService {
         .set({ boostedUntil: new Date(from + ROOM_BOOST_MS) })
         .where(eq(schema.rooms.id, roomId));
     }
+    const text =
+      kind === 'aura_tax'
+        ? `@${name} paid the aura tax. bow.`
+        : `@${name} boosted this room. promoted. lol.`;
+    return {
+      roomId,
+      kind,
+      text,
+      messageId: await this.insertSystemMessage(tx, roomId, actorId, text),
+    };
   }
 
   private async spotlightMessage(
     tx: DbOrTx,
     actorId: string,
     messageId: string | undefined,
-  ) {
+  ): Promise<RoomNotice> {
     if (!messageId) {
       throw new BadRequestException({
         code: 'MESSAGE_REQUIRED',
@@ -253,6 +333,19 @@ export class ConsumablesService {
         spotlightUntil: new Date(Date.now() + SPOTLIGHT_MS),
       })
       .where(eq(schema.rooms.id, message.roomId));
+    const name = await this.actorName(tx, actorId);
+    const text = `@${name} spotlit a yap. look up.`;
+    return {
+      roomId: message.roomId,
+      kind: 'spotlight',
+      text,
+      messageId: await this.insertSystemMessage(
+        tx,
+        message.roomId,
+        actorId,
+        text,
+      ),
+    };
   }
 
   private async armInsurance(tx: DbOrTx, userId: string) {
