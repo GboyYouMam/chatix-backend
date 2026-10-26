@@ -34,12 +34,30 @@ export class AdminService {
   async quarantineRoom(roomId: string, reason: string) {
     const room = await this.adminRepository.quarantineRoom(roomId, reason);
     if (!room) throw new NotFoundException('Room not found');
+    const adminRoom = toAdminRoom(
+      room,
+      await this.adminRepository.countRoomMessages(roomId),
+    );
+    this.realtime.emitToRoom(roomId, 'roomQuarantined', {
+      roomId,
+      quarantined: true,
+    });
+    this.realtime.emitToAdmins('admin:room_updated', { room: adminRoom });
     return { message: 'Room quarantined', room };
   }
 
   async unquarantineRoom(roomId: string) {
     const room = await this.adminRepository.unquarantineRoom(roomId);
     if (!room) throw new NotFoundException('Room not found');
+    const adminRoom = toAdminRoom(
+      room,
+      await this.adminRepository.countRoomMessages(roomId),
+    );
+    this.realtime.emitToRoom(roomId, 'roomQuarantined', {
+      roomId,
+      quarantined: false,
+    });
+    this.realtime.emitToAdmins('admin:room_updated', { room: adminRoom });
     return { message: 'Room unquarantined', room };
   }
 
@@ -127,18 +145,29 @@ export class AdminService {
   }
 
   async vaporizeUser(userId: string) {
-    const target = await this.usersRepository.findById(userId);
-    if (!target) throw new NotFoundException('User not found');
     const user = await this.usersRepository.vaporizeUser(userId);
     if (!user) throw new NotFoundException('User not found');
     const { password, ...safeUser } = user;
     void password;
+    this.realtime.emitToUser(userId, 'user:banned', {
+      bannedUntil: null,
+      banReason: 'vaporized',
+    });
+    this.realtime.disconnectUser(userId);
+    this.realtime.emitToAdmins('admin:user_updated', {
+      user: null,
+      id: userId,
+    });
     return { message: 'User vaporized', user: safeUser };
   }
 
   async deleteMessage(messageId: string) {
     const message = await this.messagesRepository.deleteMessage(messageId);
     if (!message) throw new NotFoundException('Message not found');
+    this.realtime.emitToRoom(message.roomId, 'messageDeleted', {
+      id: message.id,
+    });
+    this.realtime.emitToAdmins('admin:message_deleted', { id: message.id });
     return { message: 'Message deleted', data: message };
   }
 

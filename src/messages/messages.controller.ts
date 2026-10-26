@@ -16,8 +16,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { CreateMessageDTO } from './dto/create-message.dto';
-import { AdminGuard } from '../auth/admin.guard';
 import { MessagesGateway } from './messages.gateway';
+import { AdminAuditInterceptor } from '../admin/admin-audit.interceptor';
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -55,9 +55,12 @@ export class MessagesController {
     return this.messagesService.getRoomHistory(roomId);
   }
 
-  @UseGuards(AdminGuard)
+  @UseInterceptors(AdminAuditInterceptor)
   @Delete(':id')
-  async deleteMessage(@Param('id') id: string) {
-    return this.messagesService.deleteMessage(id);
+  async deleteMessage(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.messagesService.deleteMessage(id, user);
   }
 }

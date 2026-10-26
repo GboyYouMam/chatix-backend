@@ -16,6 +16,8 @@ import { RequestUser } from '../../auth/dto/request-user.dto';
 import { CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
 import { UpdateRoomDTO } from './dto/update-room.dto';
+import { AdminAuditInterceptor } from '../../admin/admin-audit.interceptor';
+import { UseInterceptors } from '@nestjs/common';
 
 @Controller('rooms')
 export class RoomsController {
@@ -61,6 +63,7 @@ export class RoomsController {
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(AdminAuditInterceptor)
   @Patch(':id/status')
   async updateRoomStatus(
     @Param('id') id: string,

@@ -31,6 +31,7 @@ export class AdminAuditInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<AdminRequest>();
+    if (request.user?.role !== 'admin') return next.handle();
     const response = context.switchToHttp().getResponse<Response>();
     const startedAt = Date.now();
     const action = `${request.method} ${request.path}`;
