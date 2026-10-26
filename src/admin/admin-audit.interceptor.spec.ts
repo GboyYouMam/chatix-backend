@@ -15,6 +15,7 @@ describe('AdminAuditInterceptor', () => {
         getRequest: () => request,
         getResponse: () => ({ statusCode: 200 }),
       }),
+      getHandler: () => ({}),
     };
 
     interceptor
