@@ -45,6 +45,7 @@
     "passport-jwt": "^4.0.1",
     "pino-http": "^11.0.0",
     "postgres": "^3.4.9",
+    "proxy-addr": "2.0.8",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
