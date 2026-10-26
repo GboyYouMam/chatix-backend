@@ -12,6 +12,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  date,
 } from 'drizzle-orm/pg-core';
 import { desc, relations, sql } from 'drizzle-orm';
 
@@ -65,6 +66,14 @@ export const users = pgTable('users', {
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   fightTitle: varchar('fight_title', { length: 50 }),
   fightTitleUntil: timestamp('fight_title_until', { withTimezone: true }),
+  widgetLayout: jsonb('widget_layout')
+    .$type<string[]>()
+    .default(['medal_rack', 'fight_record', 'debt_meter', 'guestbook'])
+    .notNull(),
+  profileTrackUrl: varchar('profile_track_url', { length: 300 }),
+  statusText: varchar('status_text', { length: 80 }),
+  statusSetAt: timestamp('status_set_at', { withTimezone: true }),
+  profileViews: integer('profile_views').default(0).notNull(),
 });
 
 export const FightOutcome = pgEnum('fight_outcome', [
@@ -475,5 +484,33 @@ export const shopPurchases = pgTable(
       table.userId,
       table.createdAt,
     ),
+  }),
+);
+
+export const auraHistory = pgTable(
+  'aura_history',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    day: date('day', { mode: 'string' }).notNull(),
+    aura: integer('aura').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.day] }),
+  }),
+);
+
+export const profileViewLog = pgTable(
+  'profile_view_log',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    viewerKey: varchar('viewer_key', { length: 80 }).notNull(),
+    day: date('day', { mode: 'string' }).notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.viewerKey, table.day] }),
   }),
 );

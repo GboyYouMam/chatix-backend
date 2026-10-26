@@ -4,6 +4,7 @@ import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DbOrTx } from '../database/database.types';
+import { recordAuraSnapshot } from '../widgets/aura-history';
 
 export interface UpdateUserData {
   aura?: number;
@@ -145,15 +146,18 @@ export class UsersRepository {
   }
 
   async incrementAura(userId: string) {
-    const [user] = await this.db
-      .update(scheme.users)
-      .set({
-        aura: sql`${scheme.users.aura} + 1`,
-        auraFarmCount: sql`${scheme.users.auraFarmCount} + 1`,
-      })
-      .where(eq(scheme.users.id, userId))
-      .returning({ aura: scheme.users.aura });
-    return user?.aura;
+    return this.db.transaction(async (tx) => {
+      const [user] = await tx
+        .update(scheme.users)
+        .set({
+          aura: sql`${scheme.users.aura} + 1`,
+          auraFarmCount: sql`${scheme.users.auraFarmCount} + 1`,
+        })
+        .where(eq(scheme.users.id, userId))
+        .returning({ aura: scheme.users.aura });
+      if (user) await recordAuraSnapshot(tx, userId, user.aura);
+      return user?.aura;
+    });
   }
 
   async updateLogin(userId: string, timezone?: string) {

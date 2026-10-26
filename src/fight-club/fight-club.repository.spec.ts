@@ -26,11 +26,15 @@ describe('FightClubRepository', () => {
     const tx = {
       update: jest
         .fn()
-        .mockReturnValueOnce(update([{ id: 'winner' }], setCalls))
-        .mockReturnValueOnce(update([{ id: 'loser' }], setCalls))
+        .mockReturnValueOnce(update([{ id: 'winner', aura: 1050 }], setCalls))
+        .mockReturnValueOnce(update([{ id: 'loser', aura: 950 }], setCalls))
         .mockReturnValueOnce(update([], setCalls))
         .mockReturnValueOnce(update([], setCalls)),
-      insert: jest.fn(() => ({ values: jest.fn().mockResolvedValue([]) })),
+      insert: jest.fn(() => ({
+        values: jest.fn(() => ({
+          onConflictDoUpdate: jest.fn().mockResolvedValue([]),
+        })),
+      })),
     };
     const transaction = jest.fn((callback: (tx: typeof tx) => unknown) =>
       callback(tx),

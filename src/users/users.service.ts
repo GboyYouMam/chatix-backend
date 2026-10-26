@@ -14,6 +14,7 @@ import {
   CosmeticsService,
   DEFAULT_PUBLIC_COSMETICS,
 } from '../shop/cosmetics.service';
+import { WidgetsService } from '../widgets/widgets.service';
 
 @Injectable()
 export class UsersService {
@@ -22,6 +23,7 @@ export class UsersService {
     private readonly storageService: StorageService,
     private readonly achievements: AchievementsService,
     private readonly cosmetics: CosmeticsService,
+    private readonly widgets: WidgetsService,
   ) {}
 
   async getUserProfile(userId: string, timezone?: string) {
@@ -173,6 +175,11 @@ export class UsersService {
     const cosmetics =
       (await this.cosmetics.forUsers([user.id])).get(user.id) ??
       DEFAULT_PUBLIC_COSMETICS;
+    const isOwnProfile = !viewerId || viewerId === user.id;
+    const hitCount = isOwnProfile
+      ? undefined
+      : await this.widgets.recordProfileView(user.id, viewerId);
+    const widgets = await this.widgets.forProfile(user.id, hitCount);
 
     return {
       ...user,
@@ -188,6 +195,7 @@ export class UsersService {
       })),
       comments,
       hasRespected,
+      widgets,
       // Title precedence: admin forcedTitle > active fight title > shop title.
       cosmetics: {
         ...cosmetics,

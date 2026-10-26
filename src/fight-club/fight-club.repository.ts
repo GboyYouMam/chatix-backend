@@ -3,6 +3,7 @@ import { and, count, eq, gte, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
+import { recordAuraSnapshot } from '../widgets/aura-history';
 import type { StakeVaries } from './types/types';
 
 @Injectable()
@@ -35,8 +36,9 @@ export class FightClubRepository {
               fightTitleUntil: new Date(Date.now() + 86400000),
             })
             .where(eq(scheme.users.id, winnerId))
-            .returning({ id: scheme.users.id });
+            .returning({ id: scheme.users.id, aura: scheme.users.aura });
           if (winner.length !== 1) throw new Error('Winner not found');
+          await recordAuraSnapshot(tx, winnerId, winner[0].aura);
 
           const loser = await tx
             .update(scheme.users)
@@ -46,8 +48,9 @@ export class FightClubRepository {
               fightTitleUntil: new Date(Date.now() + 86400000),
             })
             .where(eq(scheme.users.id, loserId))
-            .returning({ id: scheme.users.id });
+            .returning({ id: scheme.users.id, aura: scheme.users.aura });
           if (loser.length !== 1) throw new Error('Loser not found');
+          await recordAuraSnapshot(tx, loserId, loser[0].aura);
           break;
         }
         case 'debt': {
