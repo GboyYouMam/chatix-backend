@@ -213,10 +213,14 @@ export const adminAuditLogs = pgTable(
       onDelete: 'set null',
     }),
     action: varchar('action', { length: 100 }).notNull(),
+    actionKey: varchar('action_key', { length: 40 })
+      .notNull()
+      .default('legacy'),
     method: varchar('method', { length: 10 }).notNull(),
     path: varchar('path', { length: 500 }).notNull(),
     targetType: varchar('target_type', { length: 50 }),
     targetId: varchar('target_id', { length: 255 }),
+    targetLabel: varchar('target_label', { length: 255 }),
     statusCode: integer('status_code').notNull(),
     success: boolean('success').notNull(),
     durationMs: integer('duration_ms').notNull(),
@@ -227,6 +231,11 @@ export const adminAuditLogs = pgTable(
     createdAtIdx: index('admin_audit_logs_created_at_idx').on(table.createdAt),
     adminCreatedAtIdx: index('admin_audit_logs_admin_created_at_idx').on(
       table.adminId,
+      table.createdAt,
+    ),
+    targetTimelineIdx: index('admin_audit_logs_target_timeline_idx').on(
+      table.targetType,
+      table.targetId,
       table.createdAt,
     ),
   }),

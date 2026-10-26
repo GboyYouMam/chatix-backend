@@ -10,12 +10,14 @@ import { CreateRoomDTO } from './dto/create-room.dto';
 import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 import { toPublicRoom } from './room.serializer';
 import { RoomsRepository } from './rooms.repository';
+import { AdminAuditContext } from '../../admin/audit-context';
 
 @Injectable()
 export class RoomService {
   constructor(
     private readonly roomsRepository: RoomsRepository,
     private readonly realtime: RealtimeService,
+    private readonly auditContext: AdminAuditContext,
   ) {}
 
   private isRoomNameConflict(error: unknown): boolean {
@@ -182,6 +184,11 @@ export class RoomService {
     if (!existing) throw new NotFoundException('Room not found');
     const room = await this.roomsRepository.updateStatus(roomId, newStatus);
     if (room) {
+      this.auditContext.setTarget(room.title, roomId);
+      this.auditContext.setDiff(
+        { status: existing.status, statusReason: existing.statusReason },
+        { status: room.status, statusReason: room.statusReason },
+      );
       const quarantined = newStatus === 'quarantined';
       this.realtime.emitToRoom(roomId, 'roomQuarantined', {
         roomId,

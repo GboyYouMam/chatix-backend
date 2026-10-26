@@ -23,6 +23,7 @@ import { Throttle } from '@nestjs/throttler';
 import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { ListRoomsQueryDto } from './dto/list-rooms.query.dto';
+import { AuditAction } from '../../admin/audit-action.decorator';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -101,6 +102,7 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   @UseInterceptors(AdminAuditInterceptor)
   @Patch(':id/status')
+  @AuditAction('room.status', 'room')
   async updateRoomStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateRoomStatusDto,

@@ -8,13 +8,14 @@ describe('AdminAuditInterceptor', () => {
     const activityLogger = {
       record,
     } as unknown as AdminActivityLogger;
-    const interceptor = new AdminAuditInterceptor(activityLogger);
+    const interceptor = new AdminAuditInterceptor(activityLogger, {} as never);
     const request = { user: { role: 'user' } };
     const context = {
       switchToHttp: () => ({
         getRequest: () => request,
         getResponse: () => ({ statusCode: 200 }),
       }),
+      getHandler: () => ({}),
     };
 
     interceptor

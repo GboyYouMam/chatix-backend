@@ -21,6 +21,9 @@ import { AdminPaginationDTO } from './dto/admin-pagination.dto';
 import { CreateWarningDTO } from './dto/create-warning.dto';
 import { QuarantineRoomDTO } from './dto/quarantine-room.dto';
 import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
+import { AuditAction } from './audit-action.decorator';
+import { AuditQueryDTO } from './dto/audit-query.dto';
+import { RejectRoomDTO } from './dto/reject-room.dto';
 
 @UseGuards(JwtAuthGuard, AdminGuard)
 @UseInterceptors(AdminAuditInterceptor)
@@ -28,7 +31,28 @@ import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Get('stats')
+  getStats() {
+    return this.adminService.getStats();
+  }
+
+  @Patch('rooms/:id/approve')
+  @AuditAction('room.approve', 'room')
+  approveRoom(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.approveRoom(id);
+  }
+
+  @Patch('rooms/:id/reject')
+  @AuditAction('room.reject', 'room')
+  rejectRoom(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RejectRoomDTO,
+  ) {
+    return this.adminService.rejectRoom(id, body.reason);
+  }
+
   @Patch('rooms/:id/quarantine')
+  @AuditAction('room.quarantine', 'room')
   quarantineRoom(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: QuarantineRoomDTO,
@@ -37,11 +61,13 @@ export class AdminController {
   }
 
   @Patch('rooms/:id/unquarantine')
+  @AuditAction('room.unquarantine', 'room')
   unquarantineRoom(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.unquarantineRoom(id);
   }
 
   @Patch('users/:id/modifiers')
+  @AuditAction('user.modifiers', 'user')
   updateUserModifiers(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateUserModifiersDTO,
@@ -50,6 +76,7 @@ export class AdminController {
   }
 
   @Post('users/:id/warnings')
+  @AuditAction('user.warn', 'user')
   addWarning(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: CreateWarningDTO,
@@ -67,6 +94,7 @@ export class AdminController {
   }
 
   @Delete('users/:userId/warnings/:warningId')
+  @AuditAction('user.warn_revoke', 'user')
   revokeWarning(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('warningId', ParseUUIDPipe) warningId: string,
@@ -75,11 +103,13 @@ export class AdminController {
   }
 
   @Delete('users/:id/vaporize')
+  @AuditAction('user.vaporize', 'user')
   vaporizeUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.vaporizeUser(id);
   }
 
   @Delete('messages/:id')
+  @AuditAction('message.delete', 'message')
   deleteMessage(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.deleteMessage(id);
   }
@@ -92,6 +122,19 @@ export class AdminController {
   @Get('users/:id')
   getUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.getUser(id);
+  }
+
+  @Get('users/:id/ips')
+  getUserIps(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.getUserIps(id);
+  }
+
+  @Get('users/:id/messages')
+  getUserMessages(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: AdminPaginationDTO,
+  ) {
+    return this.adminService.getUserMessages(id, query);
   }
 
   @Get('rooms')
@@ -110,7 +153,7 @@ export class AdminController {
   }
 
   @Get('audit-logs')
-  getAuditLogs(@Query() query: AdminPaginationDTO) {
+  getAuditLogs(@Query() query: AuditQueryDTO) {
     return this.adminService.getAuditLogs(query);
   }
 }

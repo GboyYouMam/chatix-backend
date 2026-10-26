@@ -3,6 +3,7 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import { AdminActivityLogger } from './admin-activity-logger.service';
+import { AdminAuditContext } from './audit-context';
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -14,6 +15,7 @@ describe('AdminController', () => {
         { provide: AdminService, useValue: {} },
         { provide: AdminAuditInterceptor, useValue: { intercept: jest.fn() } },
         { provide: AdminActivityLogger, useValue: { record: jest.fn() } },
+        { provide: AdminAuditContext, useValue: new AdminAuditContext() },
       ],
     }).compile();
 

@@ -1,0 +1,5 @@
+ALTER TABLE "admin_audit_logs" ADD COLUMN "action_key" varchar(40) DEFAULT 'legacy' NOT NULL;--> statement-breakpoint
+ALTER TABLE "admin_audit_logs" ADD COLUMN "target_label" varchar(255);--> statement-breakpoint
+UPDATE "admin_audit_logs" SET "action_key" = CASE WHEN "action" LIKE 'PATCH /admin/rooms/%/quarantine' THEN 'room.quarantine' WHEN "action" LIKE 'PATCH /admin/rooms/%/unquarantine' THEN 'room.unquarantine' WHEN "action" LIKE 'PATCH /admin/users/%/modifiers' THEN 'user.modifiers' WHEN "action" LIKE 'POST /admin/users/%/warnings' THEN 'user.warn' WHEN "action" LIKE 'DELETE /admin/users/%/warnings/%' THEN 'user.warn_revoke' WHEN "action" LIKE 'DELETE /admin/users/%/vaporize' THEN 'user.vaporize' WHEN "action" LIKE 'DELETE /admin/messages/%' THEN 'message.delete' ELSE 'legacy' END;--> statement-breakpoint
+DELETE FROM "admin_audit_logs" WHERE "method" = 'GET';--> statement-breakpoint
+CREATE INDEX "admin_audit_logs_target_timeline_idx" ON "admin_audit_logs" USING btree ("target_type", "target_id", "created_at");
