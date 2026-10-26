@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { randomUUID } from 'node:crypto';
 import { Server } from 'socket.io';
@@ -28,7 +28,7 @@ import {
 const LOBBY_GRACE_MS = 10_000;
 
 @Injectable()
-export class FightClubService {
+export class FightClubService implements OnModuleDestroy {
   private activeMatches = new Map<string, MatchState>();
   private lobbyGraceTimers = new Map<
     string,
@@ -42,6 +42,11 @@ export class FightClubService {
     private readonly fightClubRepository: FightClubRepository,
     private readonly achievements: AchievementsService,
   ) {}
+
+  onModuleDestroy() {
+    for (const { timer } of this.lobbyGraceTimers.values()) clearTimeout(timer);
+    this.lobbyGraceTimers.clear();
+  }
 
   createMatch(
     user: RequestUser,
