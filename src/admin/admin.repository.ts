@@ -24,10 +24,12 @@ export interface AdminPageOptions {
 export interface CreateAuditLogData {
   adminId?: string;
   action: string;
+  actionKey: string;
   method: string;
   path: string;
   targetType?: string;
   targetId?: string;
+  targetLabel?: string;
   statusCode: number;
   success: boolean;
   durationMs: number;
@@ -252,23 +254,50 @@ export class AdminRepository {
     return { items, total };
   }
 
-  async findMessages(options: AdminPageOptions) {
-    const where = options.search
-      ? ilike(scheme.messages.cipherText, `%${options.search}%`)
-      : undefined;
-    const [items, [{ total }]] = await Promise.all([
-      this.db.query.messages.findMany({
-        where,
-        orderBy: [desc(scheme.messages.createdAt)],
-        limit: options.limit,
-        offset: (options.page - 1) * options.limit,
-        with: {
-          author: { columns: { id: true, username: true, isMogged: true } },
-          room: { columns: { id: true, title: true } },
-        },
-      }),
-      this.db.select({ total: count() }).from(scheme.messages).where(where),
+  async findMessages(
+    options: AdminPageOptions & { room?: string; user?: string },
+  ) {
+    const where = and(
+      options.search
+        ? ilike(scheme.messages.cipherText, `%${options.search}%`)
+        : undefined,
+      options.room ? ilike(scheme.rooms.title, `%${options.room}%`) : undefined,
+      options.user
+        ? ilike(scheme.users.username, `%${options.user}%`)
+        : undefined,
+    );
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          message: scheme.messages,
+          author: scheme.users,
+          room: scheme.rooms,
+        })
+        .from(scheme.messages)
+        .innerJoin(scheme.users, eq(scheme.users.id, scheme.messages.authorId))
+        .innerJoin(scheme.rooms, eq(scheme.rooms.id, scheme.messages.roomId))
+        .where(where)
+        .orderBy(desc(scheme.messages.createdAt))
+        .limit(options.limit)
+        .offset((options.page - 1) * options.limit),
+      this.db
+        .select({ total: count() })
+        .from(scheme.messages)
+        .innerJoin(scheme.users, eq(scheme.users.id, scheme.messages.authorId))
+        .innerJoin(scheme.rooms, eq(scheme.rooms.id, scheme.messages.roomId))
+        .where(where),
     ]);
+    const items = rows.map(({ message, author, room }) => ({
+      ...message,
+      author: {
+        id: author.id,
+        username: author.username,
+        pfp_url: author.pfp_url,
+        forcedTitle: author.forcedTitle,
+        isMogged: author.isMogged,
+      },
+      room: { id: room.id, title: room.title },
+    }));
     return { items, total };
   }
 

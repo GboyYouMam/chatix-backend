@@ -21,6 +21,7 @@ import { AdminPaginationDTO } from './dto/admin-pagination.dto';
 import { CreateWarningDTO } from './dto/create-warning.dto';
 import { QuarantineRoomDTO } from './dto/quarantine-room.dto';
 import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
+import { AuditAction } from './audit-action.decorator';
 
 @UseGuards(JwtAuthGuard, AdminGuard)
 @UseInterceptors(AdminAuditInterceptor)
@@ -29,6 +30,7 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Patch('rooms/:id/quarantine')
+  @AuditAction('room.quarantine', 'room')
   quarantineRoom(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: QuarantineRoomDTO,
@@ -37,11 +39,13 @@ export class AdminController {
   }
 
   @Patch('rooms/:id/unquarantine')
+  @AuditAction('room.unquarantine', 'room')
   unquarantineRoom(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.unquarantineRoom(id);
   }
 
   @Patch('users/:id/modifiers')
+  @AuditAction('user.modifiers', 'user')
   updateUserModifiers(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateUserModifiersDTO,
@@ -50,6 +54,7 @@ export class AdminController {
   }
 
   @Post('users/:id/warnings')
+  @AuditAction('user.warn', 'user')
   addWarning(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: CreateWarningDTO,
@@ -67,6 +72,7 @@ export class AdminController {
   }
 
   @Delete('users/:userId/warnings/:warningId')
+  @AuditAction('user.warn_revoke', 'user')
   revokeWarning(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('warningId', ParseUUIDPipe) warningId: string,
@@ -75,11 +81,13 @@ export class AdminController {
   }
 
   @Delete('users/:id/vaporize')
+  @AuditAction('user.vaporize', 'user')
   vaporizeUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.vaporizeUser(id);
   }
 
   @Delete('messages/:id')
+  @AuditAction('message.delete', 'message')
   deleteMessage(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.deleteMessage(id);
   }

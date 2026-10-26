@@ -84,11 +84,57 @@ suite('admin detail endpoints (e2e)', () => {
       .delete(`/admin/users/${target.userId}/warnings/${warningId}`)
       .set('Authorization', `Bearer ${admin.token}`)
       .expect(200);
+    const revokeAudit = await db.query.adminAuditLogs.findMany({
+      where: (logs, { eq, and }) =>
+        and(
+          eq(logs.targetId, target.userId),
+          eq(logs.actionKey, 'user.warn_revoke'),
+        ),
+    });
+    expect(revokeAudit).toHaveLength(1);
     const [afterRevoke] = await db.query.users.findMany({
       where: (users, { eq }) => eq(users.id, target.userId),
       columns: { bannedUntil: true },
     });
     expect(afterRevoke.bannedUntil).toEqual(banned.bannedUntil);
+  });
+
+  it('filters dossier messages by room title and author username', async () => {
+    const author = await registerAndLogin(app, 'filter_author', 'StrongPass1!');
+    const other = await registerAndLogin(app, 'filter_other', 'StrongPass1!');
+    const admin = await registerAndLogin(app, 'filter_admin', 'StrongPass1!');
+    await makeAdmin(db, admin.userId);
+    const [room] = await db
+      .insert(schema.rooms)
+      .values({ creatorId: admin.userId, title: 'Room Filter Target' })
+      .returning({ id: schema.rooms.id });
+    const [otherRoom] = await db
+      .insert(schema.rooms)
+      .values({ creatorId: admin.userId, title: 'Other Room' })
+      .returning({ id: schema.rooms.id });
+    await db.insert(schema.messages).values([
+      { roomId: room.id, authorId: author.userId, cipherText: 'match one' },
+      {
+        roomId: otherRoom.id,
+        authorId: author.userId,
+        cipherText: 'match two',
+      },
+      { roomId: room.id, authorId: other.userId, cipherText: 'match three' },
+    ]);
+    const headers = { Authorization: `Bearer ${admin.token}` };
+    const filtered = await request(app.getHttpServer())
+      .get(
+        '/admin/messages?room=FILTER TARGET&user=FILTER_AUTHOR&page=1&limit=10',
+      )
+      .set(headers)
+      .expect(200);
+    const items = filtered.body.items as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      cipherText: 'match one',
+      room: { id: room.id, title: 'Room Filter Target' },
+      author: { username: 'filter_author' },
+    });
   });
 
   it('clears ban metadata and applies atomic modifier deltas', async () => {

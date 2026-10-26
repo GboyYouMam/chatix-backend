@@ -8,6 +8,7 @@ import { Request, Response } from 'express';
 import { catchError, from, map, mergeMap, Observable, throwError } from 'rxjs';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { AdminActivityLogger } from './admin-activity-logger.service';
+import { AUDIT_ACTION } from './audit-action.decorator';
 
 type AdminRequest = Request & { user?: RequestUser };
 
@@ -31,38 +32,35 @@ export class AdminAuditInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<AdminRequest>();
-    if (request.user?.role !== 'admin') return next.handle();
+    const metadata = Reflect.getMetadata(AUDIT_ACTION, context.getHandler()) as
+      | { key: string; targetType: string }
+      | undefined;
+    if (request.user?.role !== 'admin' || request.method === 'GET' || !metadata)
+      return next.handle();
     const response = context.switchToHttp().getResponse<Response>();
     const startedAt = Date.now();
-    const action = `${request.method} ${request.path}`;
+    const action = metadata.key;
     const rawTargetId =
       request.params.id ?? request.params.userId ?? request.params.warningId;
     const targetId = Array.isArray(rawTargetId) ? rawTargetId[0] : rawTargetId;
-    const pathSegments = request.path.split('/').filter(Boolean);
-    const adminSegment = pathSegments.indexOf('admin');
-    const targetType = pathSegments[adminSegment >= 0 ? adminSegment + 1 : 0];
-
-    const requestBody: unknown = request.body;
-    const bodyFields =
-      typeof requestBody === 'object' && requestBody !== null
-        ? Object.keys(requestBody)
-        : [];
 
     const writeLog = (success: boolean, statusCode: number, error?: unknown) =>
       this.activityLogger.record({
         adminId: request.user?.userId,
         action,
+        actionKey: metadata.key,
         method: request.method,
         path: request.originalUrl,
-        targetType,
+        targetType: metadata.targetType,
         targetId,
+        targetLabel: undefined,
         statusCode,
         success,
         durationMs: Date.now() - startedAt,
         details: {
-          params: request.params,
-          query: request.query,
-          bodyFields,
+          ...(typeof (request.body as { reason?: unknown })?.reason === 'string'
+            ? { reason: (request.body as { reason: string }).reason }
+            : {}),
           ...(error ? { error: errorMessage(error) } : {}),
         },
       });
