@@ -1,8 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
+import { AUTOBAN_REASON, computeAutoban } from './autoban';
 
 export interface AdminPageOptions {
   page: number;
@@ -30,6 +41,41 @@ export class AdminRepository {
     private readonly db: PostgresJsDatabase<typeof scheme>,
   ) {}
 
+  async findUser(userId: string) {
+    return this.db.query.users.findFirst({
+      where: eq(scheme.users.id, userId),
+    });
+  }
+
+  async findRoom(roomId: string) {
+    return this.db.query.rooms.findFirst({
+      where: eq(scheme.rooms.id, roomId),
+    });
+  }
+
+  async countActiveWarnings(userIds: string[]) {
+    if (!userIds.length) return new Map<string, number>();
+    const rows = await this.db
+      .select({ userId: scheme.userWarnings.userId, total: count() })
+      .from(scheme.userWarnings)
+      .where(
+        and(
+          inArray(scheme.userWarnings.userId, userIds),
+          isNull(scheme.userWarnings.revokedAt),
+        ),
+      )
+      .groupBy(scheme.userWarnings.userId);
+    return new Map(rows.map(({ userId, total }) => [userId, total]));
+  }
+
+  async countRoomMessages(roomId: string) {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(scheme.messages)
+      .where(eq(scheme.messages.roomId, roomId));
+    return total;
+  }
+
   async quarantineRoom(roomId: string, reason: string) {
     const [room] = await this.db
       .update(scheme.rooms)
@@ -50,34 +96,83 @@ export class AdminRepository {
 
   async updateModifiers(
     userId: string,
-    modifiers: Partial<typeof scheme.users.$inferInsert>,
+    modifiers: Partial<typeof scheme.users.$inferInsert> & {
+      auraDelta?: number;
+      debtDelta?: number;
+    },
   ) {
-    const [updatedUser] = await this.db
-      .update(scheme.users)
-      .set(modifiers)
-      .where(eq(scheme.users.id, userId))
-      .returning();
-    return updatedUser;
+    return this.db.transaction(async (tx) => {
+      const { auraDelta, debtDelta, ...fields } = modifiers;
+      const updates = {
+        ...fields,
+        ...(auraDelta !== undefined
+          ? { aura: sql`${scheme.users.aura} + ${auraDelta}` }
+          : {}),
+        ...(debtDelta !== undefined
+          ? { debt: sql`${scheme.users.debt} + ${debtDelta}` }
+          : {}),
+        ...(fields.bannedUntil && fields.bannedUntil > new Date()
+          ? { tokenVersion: sql`${scheme.users.tokenVersion} + 1` }
+          : {}),
+      };
+      const [updatedUser] = await tx
+        .update(scheme.users)
+        .set(updates)
+        .where(eq(scheme.users.id, userId))
+        .returning();
+      return updatedUser;
+    });
   }
 
   async createWarning(userId: string, adminId: string, reason: string) {
     return this.db.transaction(async (tx) => {
-      const [user] = await tx
-        .select({ id: scheme.users.id })
+      const [currentUser] = await tx
+        .select()
         .from(scheme.users)
         .where(eq(scheme.users.id, userId))
         .limit(1);
-      if (!user) return null;
+      if (!currentUser) return null;
 
       const [warning] = await tx
         .insert(scheme.userWarnings)
         .values({ userId, adminId, reason })
         .returning();
-      await tx
+      const [{ activeWarnings }] = await tx
+        .select({ activeWarnings: count() })
+        .from(scheme.userWarnings)
+        .where(
+          and(
+            eq(scheme.userWarnings.userId, userId),
+            isNull(scheme.userWarnings.revokedAt),
+          ),
+        );
+      const now = new Date();
+      const autoBan = computeAutoban(
+        activeWarnings,
+        currentUser.bannedUntil,
+        now,
+      );
+      const autoBanned = Boolean(
+        autoBan &&
+        (!currentUser.bannedUntil ||
+          autoBan.bannedUntil > currentUser.bannedUntil),
+      );
+      const [user] = await tx
         .update(scheme.users)
-        .set({ warnsCount: sql`${scheme.users.warnsCount} + 1` })
-        .where(eq(scheme.users.id, userId));
-      return warning;
+        .set({
+          warnsCount: activeWarnings,
+          ...(autoBanned
+            ? {
+                bannedUntil: autoBan?.bannedUntil,
+                banReason: AUTOBAN_REASON,
+                autoBannedAt: now,
+                tokenVersion: sql`${scheme.users.tokenVersion} + 1`,
+              }
+            : {}),
+        })
+        .where(eq(scheme.users.id, userId))
+        .returning();
+      return { warning, user, autoBanned };
     });
   }
 
@@ -96,9 +191,18 @@ export class AdminRepository {
         .returning();
       if (!warning) return null;
 
+      const [{ activeWarnings }] = await tx
+        .select({ activeWarnings: count() })
+        .from(scheme.userWarnings)
+        .where(
+          and(
+            eq(scheme.userWarnings.userId, userId),
+            isNull(scheme.userWarnings.revokedAt),
+          ),
+        );
       await tx
         .update(scheme.users)
-        .set({ warnsCount: sql`greatest(${scheme.users.warnsCount} - 1, 0)` })
+        .set({ warnsCount: activeWarnings })
         .where(eq(scheme.users.id, userId));
       return warning;
     });
@@ -118,7 +222,14 @@ export class AdminRepository {
       }),
       this.db.select({ total: count() }).from(scheme.users).where(where),
     ]);
-    return { items, total };
+    const warnings = await this.countActiveWarnings(items.map(({ id }) => id));
+    return {
+      items: items.map((user) => ({
+        ...user,
+        activeWarningsCount: warnings.get(user.id) ?? 0,
+      })),
+      total,
+    };
   }
 
   async findRooms(options: AdminPageOptions) {

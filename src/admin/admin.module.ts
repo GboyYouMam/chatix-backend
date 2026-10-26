@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { AdminRepository } from './admin.repository';
@@ -11,6 +11,7 @@ import { AdminActivityLogger } from './admin-activity-logger.service';
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import { AuthModule } from '../auth/auth.module';
 
+@Global()
 @Module({
   imports: [UsersModule, RoomsModule, MessagesModule, AuthModule],
   controllers: [AdminController],
@@ -21,5 +22,6 @@ import { AuthModule } from '../auth/auth.module';
     AdminActivityLogger,
     AdminAuditInterceptor,
   ],
+  exports: [AdminAuditInterceptor, AdminActivityLogger],
 })
 export class AdminModule {}

@@ -8,6 +8,7 @@ import {
   Patch,
   Delete,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { RequestUser } from '../../auth/dto/request-user.dto';
 import { CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
 import { UpdateRoomDTO } from './dto/update-room.dto';
+import { AdminAuditInterceptor } from '../../admin/admin-audit.interceptor';
 import { Throttle } from '@nestjs/throttler';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
@@ -64,6 +66,7 @@ export class RoomsController {
   }
 
   @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(AdminAuditInterceptor)
   @Patch(':id/status')
   async updateRoomStatus(
     @Param('id') id: string,

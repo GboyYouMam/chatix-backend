@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.module';
 import * as scheme from '../../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -113,6 +113,14 @@ export class RoomsRepository {
     return updatedRoom;
   }
 
+  async countMessages(roomId: string) {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(scheme.messages)
+      .where(eq(scheme.messages.roomId, roomId));
+    return total;
+  }
+
   async deleteRoom(roomId: string) {
     const [deletedRoom] = await this.db
       .delete(scheme.rooms)
@@ -168,7 +176,6 @@ export class RoomsRepository {
       .onConflictDoNothing();
     return true;
   }
-
   async findAllAdmin() {
     return this.db.query.rooms.findMany({
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],

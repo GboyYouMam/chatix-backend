@@ -4,14 +4,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { RoomsRepository } from './rooms.repository';
+import { RealtimeService } from '../../realtime/realtime.service';
 import { CreateRoomDTO } from './dto/create-room.dto';
-import { toPublicRoom } from './room.serializer';
 import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
+import { toPublicRoom } from './room.serializer';
+import { RoomsRepository } from './rooms.repository';
 
 @Injectable()
 export class RoomService {
-  constructor(private readonly roomsRepository: RoomsRepository) {}
+  constructor(
+    private readonly roomsRepository: RoomsRepository,
+    private readonly realtime: RealtimeService,
+  ) {}
 
   async createRoom(creatorId: string, data: CreateRoomDTO) {
     const user = await this.roomsRepository.getUserValidationData(creatorId);
@@ -44,9 +48,7 @@ export class RoomService {
 
   async getRoomsDetails(roomId: string) {
     const room = await this.roomsRepository.findById(roomId);
-    if (!room) {
-      throw new NotFoundException('Room not found lmao try again');
-    }
+    if (!room) throw new NotFoundException('Room not found lmao try again');
     if (room.status === 'banned') {
       throw new ForbiddenException(
         'This room is freakin banned for some reason by us, admins get a job instead',
@@ -79,9 +81,8 @@ export class RoomService {
     data: UpdateRoomPublicityDto,
   ) {
     const room = await this.getRoomsDetails(roomId);
-    if (room.creatorId !== userId) {
+    if (room.creatorId !== userId)
       throw new ForbiddenException('Not your room, lil bro.');
-    }
     const password =
       data.publicity === 'private' && data.password
         ? await bcrypt.hash(data.password, 10)
@@ -128,9 +129,22 @@ export class RoomService {
     newStatus: 'active' | 'checkout' | 'banned' | 'quarantined',
   ) {
     await this.getRoomsDetails(roomId);
-    return toPublicRoom(
-      await this.roomsRepository.updateStatus(roomId, newStatus),
-    );
+    const room = await this.roomsRepository.updateStatus(roomId, newStatus);
+    if (room) {
+      const quarantined = newStatus === 'quarantined';
+      this.realtime.emitToRoom(roomId, 'roomQuarantined', {
+        roomId,
+        quarantined,
+      });
+      this.realtime.emitToAdmins('admin:room_updated', {
+        room: {
+          ...toPublicRoom(room),
+          quarantinedUntil: room.quarantinedUntil?.toISOString() ?? null,
+          messagesCount: await this.roomsRepository.countMessages(roomId),
+        },
+      });
+    }
+    return room ? toPublicRoom(room) : room;
   }
 
   async joinPrivateRoom(roomId: string, userId: string, passwordInput: string) {
@@ -144,7 +158,6 @@ export class RoomService {
 
     const hasAccess = await this.roomsRepository.checkAccess(roomId, userId);
     if (hasAccess) return { success: true, message: 'Already inside' };
-
     if (!(await bcrypt.compare(passwordInput, room.password ?? ''))) {
       throw new ForbiddenException('Wrong password. Get lost lmao.');
     }
@@ -164,13 +177,11 @@ export class RoomService {
         `Room '${roomName}' not found lmao try again`,
       );
     }
-
     if (room.status === 'banned') {
       throw new ForbiddenException(
         'This room is freakin banned for some reason by us, admins get a job instead',
       );
     }
-
     return toPublicRoom(room);
   }
 }

@@ -42,15 +42,7 @@ export class AdminController {
     @Param('id') id: string,
     @Body() body: UpdateUserModifiersDTO,
   ) {
-    const modifiersToApply: Record<string, unknown> = {
-      ...body,
-      bannedUntil: body.bannedUntil ? new Date(body.bannedUntil) : undefined,
-      yapCooldown: body.yapCooldown ? new Date(body.yapCooldown) : undefined,
-    };
-    Object.keys(modifiersToApply).forEach((key) => {
-      if (modifiersToApply[key] === undefined) delete modifiersToApply[key];
-    });
-    return this.adminService.updateModifiers(id, modifiersToApply);
+    return this.adminService.updateModifiers(id, body);
   }
 
   @Post('users/:id/warnings')
@@ -59,7 +51,7 @@ export class AdminController {
     @Body() body: CreateWarningDTO,
     @CurrentUser() admin: RequestUser,
   ) {
-    return this.adminService.addWarning(id, admin.userId, body.reason);
+    return this.adminService.createWarning(id, admin.userId, body.reason);
   }
 
   @Get('users/:id/warnings')
@@ -90,9 +82,19 @@ export class AdminController {
     return this.adminService.getUsers(query);
   }
 
+  @Get('users/:id')
+  getUser(@Param('id') id: string) {
+    return this.adminService.getUser(id);
+  }
+
   @Get('rooms')
   getRooms(@Query() query: AdminPaginationDTO) {
     return this.adminService.getRooms(query);
+  }
+
+  @Get('rooms/:id')
+  getRoom(@Param('id') id: string) {
+    return this.adminService.getRoom(id);
   }
 
   @Get('messages')

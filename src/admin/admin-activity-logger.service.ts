@@ -15,9 +15,14 @@ export class AdminActivityLogger {
     try {
       const entry = await this.adminRepository.createAuditLog(data);
       const level = data.success ? 'log' : 'warn';
-      this.logger[level](
-        `${data.action} ${data.statusCode} admin=${data.adminId ?? 'unknown'} target=${data.targetId ?? '-'}`,
-      );
+      this.logger[level]({
+        event: 'admin.action',
+        adminId: data.adminId,
+        action: data.action,
+        targetId: data.targetId,
+        statusCode: data.statusCode,
+        success: data.success,
+      });
       this.adminGateway.sendLogToAdmins(entry);
       return entry;
     } catch (error) {

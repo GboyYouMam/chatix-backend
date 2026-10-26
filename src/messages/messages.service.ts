@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
 import { StorageService } from '../storage/storage.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { RequestUser } from '../auth/dto/request-user.dto';
 import { RoomService } from '../rooms/room/room.service';
 import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
 
@@ -27,6 +29,7 @@ export class MessagesService {
   constructor(
     private readonly messagesRepository: MessagesRepository,
     private readonly storageService: StorageService,
+    private readonly realtime: RealtimeService,
     private readonly roomsService: RoomService,
   ) {}
 
@@ -147,11 +150,23 @@ export class MessagesService {
     return this.messagesRepository.getRoomHistory(roomId, query);
   }
 
-  async deleteMessage(messageId: string) {
+  async deleteMessage(messageId: string, actor: RequestUser) {
+    const message = await this.messagesRepository.findById(messageId);
+    if (!message) throw new NotFoundException('Message not found');
+    if (actor.role !== 'admin' && message.authorId !== actor.userId)
+      throw new ForbiddenException('Not your message');
     const deletedMessage =
       await this.messagesRepository.deleteMessage(messageId);
 
     if (!deletedMessage) throw new NotFoundException('Message not found');
+
+    this.realtime.emitToRoom(deletedMessage.roomId, 'messageDeleted', {
+      id: deletedMessage.id,
+    });
+    if (actor.role === 'admin')
+      this.realtime.emitToAdmins('admin:message_deleted', {
+        id: deletedMessage.id,
+      });
 
     return { message: 'ELIMINATED BY KILLSQUAD', deletedMessage };
   }
