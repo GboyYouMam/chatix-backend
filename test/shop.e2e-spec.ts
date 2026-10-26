@@ -238,11 +238,13 @@ suite('shop (e2e)', () => {
       nameColor: '#fb7185',
       nameIcon: null,
       quoteStyle: null,
+      vineBoom: false,
     });
     expect(byAuthor(owner.userId)).toEqual({
       nameColor: null,
       nameIcon: null,
       quoteStyle: null,
+      vineBoom: false,
     });
   });
 });

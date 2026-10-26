@@ -15,6 +15,7 @@ import {
   DEFAULT_PUBLIC_COSMETICS,
 } from '../shop/cosmetics.service';
 import { WidgetsService } from '../widgets/widgets.service';
+import { ProfileEffectsService } from '../shop/profile-effects.service';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +25,7 @@ export class UsersService {
     private readonly achievements: AchievementsService,
     private readonly cosmetics: CosmeticsService,
     private readonly widgets: WidgetsService,
+    private readonly profileEffects: ProfileEffectsService,
   ) {}
 
   async getUserProfile(userId: string, timezone?: string) {
@@ -158,7 +160,7 @@ export class UsersService {
       throw new NotFoundException('This user not found ughhhh');
     }
 
-    const [comments, hasRespected, activeWarnings, achievements] =
+    const [comments, hasRespected, activeWarnings, achievements, effects] =
       await Promise.all([
         this.usersRepository.findProfileComments(user.id),
         viewerId
@@ -166,6 +168,7 @@ export class UsersService {
           : false,
         this.usersRepository.findActiveWarnings(user.id),
         this.usersRepository.findAchievements(user.id),
+        this.profileEffects.forUsers([user.id]),
       ]);
 
     const fightTitle =
@@ -196,6 +199,11 @@ export class UsersService {
       comments,
       hasRespected,
       widgets,
+      effects: (effects.get(user.id) ?? []).map((effect) => ({
+        kind: effect.kind,
+        expiresAt: effect.expiresAt,
+        appliedBy: effect.appliedBy,
+      })),
       // Title precedence: admin forcedTitle > active fight title > shop title.
       cosmetics: {
         ...cosmetics,

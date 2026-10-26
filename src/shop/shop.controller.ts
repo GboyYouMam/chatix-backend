@@ -2,13 +2,18 @@ import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { RequestUser } from '../auth/dto/request-user.dto';
+import { ConsumablesService } from './consumables.service';
 import { EquipDto } from './dto/equip.dto';
 import { PurchaseDto } from './dto/purchase.dto';
+import { UseItemDto } from './dto/use-item.dto';
 import { ShopService } from './shop.service';
 
 @Controller('shop')
 export class ShopController {
-  constructor(private readonly shop: ShopService) {}
+  constructor(
+    private readonly shop: ShopService,
+    private readonly consumables: ConsumablesService,
+  ) {}
 
   @Get('catalog')
   catalog() {
@@ -25,6 +30,12 @@ export class ShopController {
   @Post('purchase')
   purchase(@CurrentUser() user: RequestUser, @Body() body: PurchaseDto) {
     return this.shop.purchase(user.userId, body.itemKey);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('use')
+  use(@CurrentUser() user: RequestUser, @Body() body: UseItemDto) {
+    return this.consumables.use(user.userId, body);
   }
 
   @UseGuards(JwtAuthGuard)

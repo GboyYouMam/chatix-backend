@@ -23,9 +23,17 @@ describe('FightClubRepository', () => {
 
   it('settles both players with atomic SQL increments in one transaction', async () => {
     const setCalls: Record<string, unknown>[] = [];
+    const selectChain = {
+      from: jest.fn(() => selectChain),
+      where: jest.fn(() => selectChain),
+      for: jest.fn().mockResolvedValue([{ armed: false }]),
+    };
     const tx = {
+      select: jest.fn(() => selectChain),
       update: jest
         .fn()
+        // insurance flag clear for both players
+        .mockReturnValueOnce(update([], setCalls))
         .mockReturnValueOnce(update([{ id: 'winner', aura: 1050 }], setCalls))
         .mockReturnValueOnce(update([{ id: 'loser', aura: 950 }], setCalls))
         .mockReturnValueOnce(update([], setCalls))
@@ -52,10 +60,10 @@ describe('FightClubRepository', () => {
     );
 
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(tx.update).toHaveBeenCalledTimes(4);
-    expect(setCalls).toHaveLength(4);
-    const winnerAura = setCalls[0].aura;
-    const loserAura = setCalls[1].aura;
+    expect(tx.update).toHaveBeenCalledTimes(5);
+    expect(setCalls).toHaveLength(5);
+    const winnerAura = setCalls[1].aura;
+    const loserAura = setCalls[2].aura;
     expect(winnerAura).toBeInstanceOf(SQL);
     expect(loserAura).toBeInstanceOf(SQL);
     const winnerQuery = new PgDialect().sqlToQuery(winnerAura as SQL);

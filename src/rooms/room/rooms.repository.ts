@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { eq, and, count, sql } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.module';
 import * as scheme from '../../database/scheme';
@@ -10,6 +10,18 @@ export const CREATOR_COLUMNS = {
   username: true,
   pfp_url: true,
   forcedTitle: true,
+} as const;
+
+// Relations every public room payload needs for sponsor and spotlight display.
+export const ROOM_WITH = {
+  creator: { columns: CREATOR_COLUMNS },
+  sponsor: { columns: { username: true } },
+  spotlightMessage: {
+    columns: { id: true, cipherText: true, createdAt: true, isDeleted: true },
+    with: {
+      author: { columns: { id: true, username: true, pfp_url: true } },
+    },
+  },
 } as const;
 
 @Injectable()
@@ -32,6 +44,7 @@ export class RoomsRepository {
     description?: string;
     publicity: 'public' | 'private';
     password?: string;
+    theme?: string;
   }) {
     const [newRoom] = await this.db
       .insert(scheme.rooms)
@@ -42,6 +55,7 @@ export class RoomsRepository {
         description: data.description,
         publicity: data.publicity,
         password: data.password,
+        theme: data.theme,
       })
       .returning();
 
@@ -55,14 +69,21 @@ export class RoomsRepository {
   async findById(roomId: string) {
     return this.db.query.rooms.findFirst({
       where: eq(scheme.rooms.id, roomId),
-      with: { creator: { columns: CREATOR_COLUMNS } },
+      with: ROOM_WITH,
     });
+  }
+
+  // Re-reads a room with its relations after an update.
+  private async reload(roomId: string) {
+    const room = await this.findById(roomId);
+    if (!room) throw new NotFoundException('Room not found');
+    return room;
   }
 
   async findRoomByName(roomName: string) {
     return this.db.query.rooms.findFirst({
       where: sql`lower(${scheme.rooms.title}) = lower(${roomName})`,
-      with: { creator: { columns: CREATOR_COLUMNS } },
+      with: ROOM_WITH,
     });
   }
 
@@ -70,11 +91,7 @@ export class RoomsRepository {
     return this.db.query.rooms.findMany({
       where: eq(scheme.rooms.status, status),
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
-      with: {
-        creator: {
-          columns: CREATOR_COLUMNS,
-        },
-      },
+      with: ROOM_WITH,
     });
   }
 
@@ -82,7 +99,7 @@ export class RoomsRepository {
     return this.db.query.rooms.findMany({
       where: eq(scheme.rooms.creatorId, creatorId),
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
-      with: { creator: { columns: CREATOR_COLUMNS } },
+      with: ROOM_WITH,
     });
   }
 
@@ -93,11 +110,7 @@ export class RoomsRepository {
         eq(scheme.rooms.publicity, publicity),
       ),
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
-      with: {
-        creator: {
-          columns: CREATOR_COLUMNS,
-        },
-      },
+      with: ROOM_WITH,
     });
   }
 
@@ -107,12 +120,11 @@ export class RoomsRepository {
         eq(scheme.rooms.status, 'active'),
         eq(scheme.rooms.publicity, 'public'),
       ),
-      orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
-      with: {
-        creator: {
-          columns: CREATOR_COLUMNS,
-        },
-      },
+      orderBy: (rooms, { desc }) => [
+        sql`coalesce(${rooms.boostedUntil} > now(), false) desc`,
+        desc(rooms.createdAt),
+      ],
+      with: ROOM_WITH,
     });
   }
 
@@ -120,13 +132,13 @@ export class RoomsRepository {
     roomId: string,
     newStatus: 'active' | 'checkout' | 'banned' | 'quarantined',
   ) {
-    const [updatedRoom] = await this.db
+    await this.db
       .update(scheme.rooms)
       .set({ status: newStatus })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
 
-    return updatedRoom;
+    return this.reload(roomId);
   }
 
   async countMessages(roomId: string) {
@@ -150,16 +162,16 @@ export class RoomsRepository {
     newPublicity: 'public' | 'private',
     password: string | null,
   ) {
-    const [updatedRoom] = await this.db
+    await this.db
       .update(scheme.rooms)
       .set({ publicity: newPublicity, password })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
-    return updatedRoom;
+    return this.reload(roomId);
   }
 
   async updateRoom(roomId: string, data: Partial<CreateRoomDTO>) {
-    const [updatedRoom] = await this.db
+    await this.db
       .update(scheme.rooms)
       .set({
         title: data.title,
@@ -167,10 +179,33 @@ export class RoomsRepository {
         description: data.description,
         publicity: data.publicity,
         password: data.publicity === 'public' ? null : data.password,
+        theme: data.theme,
       })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
-    return updatedRoom;
+    return this.reload(roomId);
+  }
+
+  async ownsItem(userId: string, itemKey: string) {
+    const row = await this.db.query.userInventory.findFirst({
+      where: and(
+        eq(scheme.userInventory.userId, userId),
+        eq(scheme.userInventory.itemKey, itemKey),
+      ),
+      columns: { itemKey: true },
+    });
+    return Boolean(row);
+  }
+
+  async hasAchievement(userId: string, key: string) {
+    const row = await this.db.query.userAchievements.findFirst({
+      where: and(
+        eq(scheme.userAchievements.userId, userId),
+        eq(scheme.userAchievements.key, key),
+      ),
+      columns: { key: true },
+    });
+    return Boolean(row);
   }
 
   async checkAccess(roomId: string, userId: string) {

@@ -20,6 +20,10 @@ import {
   DEFAULT_PUBLIC_COSMETICS,
   toAuthorCosmetics,
 } from '../shop/cosmetics.service';
+import {
+  isRenameCursed,
+  ProfileEffectsService,
+} from '../shop/profile-effects.service';
 
 type MessageAttachmentInput = {
   url: string;
@@ -43,6 +47,7 @@ export class MessagesService {
     private readonly config: ConfigService,
     private readonly achievements: AchievementsService,
     private readonly cosmetics: CosmeticsService,
+    private readonly profileEffects: ProfileEffectsService,
   ) {}
 
   async sendMessage(
@@ -172,6 +177,9 @@ export class MessagesService {
         (await this.cosmetics.forUsers([authorId])).get(authorId) ??
           DEFAULT_PUBLIC_COSMETICS,
       );
+      const renameCursed = isRenameCursed(
+        (await this.profileEffects.forUsers([authorId])).get(authorId) ?? [],
+      );
       return toPublicMessage(
         message,
         message.ipAddress
@@ -181,6 +189,7 @@ export class MessagesService {
             )
           : null,
         authorCosmetics,
+        renameCursed,
       );
     } catch (error) {
       await Promise.all(
@@ -210,11 +219,13 @@ export class MessagesService {
     await this.roomsService.assertCanAccess(roomId, userId);
     const history = await this.messagesRepository.getRoomHistory(roomId, query);
     // One cosmetics lookup per page, not per message.
-    const cosmetics = await this.cosmetics.forUsers(
-      history.items.flatMap((message) =>
-        message.author ? [message.author.id] : [],
-      ),
+    const authorIds = history.items.flatMap((message) =>
+      message.author ? [message.author.id] : [],
     );
+    const [cosmetics, effects] = await Promise.all([
+      this.cosmetics.forUsers(authorIds),
+      this.profileEffects.forUsers(authorIds),
+    ]);
     return {
       ...history,
       items: history.items.map((message) =>
@@ -231,6 +242,9 @@ export class MessagesService {
                 cosmetics.get(message.author.id) ?? DEFAULT_PUBLIC_COSMETICS,
               )
             : undefined,
+          message.author
+            ? isRenameCursed(effects.get(message.author.id) ?? [])
+            : false,
         ),
       ),
     };
