@@ -21,7 +21,7 @@ export class UsersService {
     const user = await this.usersRepository.findById(userId);
 
     if (!user) {
-      throw new NotFoundException('Foid not found');
+      throw new NotFoundException('no such chud. touch grass and try again.');
     }
 
     const respectCount = user.respectCount;
