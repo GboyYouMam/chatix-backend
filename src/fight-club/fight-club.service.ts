@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { Server } from 'socket.io';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { FightClubRepository } from './fight-club.repository';
+import { AchievementsService } from '../achievements/achievements.service';
 import { FightCreateDto } from './dto/fight-create.dto';
 import { FightHitDto } from './dto/fight-hit.dto';
 import { FightJoinDto } from './dto/fight-join.dto';
@@ -37,7 +38,10 @@ export class FightClubService {
   public server: Server;
   private logger = new Logger('FightClubService');
 
-  constructor(private readonly fightClubRepository: FightClubRepository) {}
+  constructor(
+    private readonly fightClubRepository: FightClubRepository,
+    private readonly achievements: AchievementsService,
+  ) {}
 
   createMatch(
     user: RequestUser,
@@ -206,6 +210,7 @@ export class FightClubService {
     winnerId: string,
     loserId: string,
     emitGameOver = false,
+    outcome: 'ko' | 'rage_quit' = 'ko',
   ): Promise<boolean> {
     const { stakeType, stakeAmount, matchId } = match;
     try {
@@ -214,7 +219,10 @@ export class FightClubService {
         loserId,
         stakeType,
         stakeAmount,
+        { player1Id: match.player1.id, player2Id: match.player2.id },
+        outcome,
       );
+      await this.awardFightAchievements(match, winnerId, loserId, outcome);
       this.logger.log({
         event: 'fight.match.finished',
         matchId,
@@ -265,7 +273,7 @@ export class FightClubService {
           message: 'Opponent disconnected. FLAAAWLESS VICTORY.',
         });
         match.status = 'FIGHT_OVER';
-        await this.finishMatch(match, winner.id, userId, true);
+        await this.finishMatch(match, winner.id, userId, true, 'rage_quit');
         return;
       }
     }
@@ -331,6 +339,59 @@ export class FightClubService {
     this.server
       .to(matchId)
       .emit('fight:cancelled', { reason: 'opponent_left' });
+    await this.fightClubRepository.recordCancelled({
+      player1Id: match.player1.id,
+      player2Id: match.player2.id || undefined,
+      stakeType: match.stakeType,
+      stakeAmount: match.stakeAmount,
+    });
+  }
+
+  private async awardFightAchievements(
+    match: MatchState,
+    winnerId: string,
+    loserId: string,
+    outcome: 'ko' | 'rage_quit',
+  ) {
+    try {
+      await Promise.all([
+        this.achievements.evaluate(winnerId, 'fight'),
+        this.achievements.evaluate(loserId, 'fight'),
+        ...(match.stakeAmount >= 500
+          ? [
+              this.achievements.grantSafely(winnerId, 'high_roller'),
+              this.achievements.grantSafely(loserId, 'high_roller'),
+            ]
+          : []),
+      ]);
+      if (await this.fightClubRepository.isClown(winnerId)) {
+        await this.achievements.grantSafely(loserId, 'got_mogged_by_a_clown');
+      }
+      if (outcome === 'rage_quit') {
+        await this.achievements.grantSafely(loserId, 'rage_quitter');
+      }
+      for (const userId of [winnerId, loserId]) {
+        if ((await this.fightClubRepository.countRecentFights(userId)) >= 3) {
+          await this.achievements.grantSafely(userId, 'the_soap_market');
+        }
+      }
+      if (match.stakeType === 'aura') {
+        await Promise.all([
+          this.achievements.evaluate(winnerId, 'aura'),
+          this.achievements.evaluate(loserId, 'aura'),
+        ]);
+      } else {
+        await Promise.all([
+          this.achievements.evaluate(winnerId, 'debt'),
+          this.achievements.evaluate(loserId, 'debt'),
+        ]);
+      }
+    } catch (error) {
+      this.logger.error({
+        event: 'achievement.fight_failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private clearLobbyGrace(userId: string, matchId: string) {

@@ -5,10 +5,11 @@ import type { Server, Socket } from 'socket.io';
 import { FightClubRepository } from './fight-club.repository';
 import { FightClubService } from './fight-club.service';
 import type { MatchState } from './types/types';
+import { AchievementsService } from '../achievements/achievements.service';
 
 describe('FightClubService', () => {
   let service: FightClubService;
-  let repo: { settle: jest.Mock };
+  let repo: { settle: jest.Mock; countRecentFights: jest.Mock };
   let roomEmit: jest.Mock;
   let serverEmit: jest.Mock;
   let fetchSockets: jest.Mock;
@@ -54,11 +55,23 @@ describe('FightClubService', () => {
   };
 
   beforeEach(async () => {
-    repo = { settle: jest.fn() };
+    repo = {
+      settle: jest.fn(),
+      countRecentFights: jest.fn().mockResolvedValue(0),
+      isClown: jest.fn().mockResolvedValue(false),
+      recordCancelled: jest.fn().mockResolvedValue(undefined),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FightClubService,
         { provide: FightClubRepository, useValue: repo },
+        {
+          provide: AchievementsService,
+          useValue: {
+            evaluate: jest.fn().mockResolvedValue(undefined),
+            grantSafely: jest.fn().mockResolvedValue(false),
+          },
+        },
       ],
     }).compile();
 
@@ -97,7 +110,14 @@ describe('FightClubService', () => {
       expect(result.kind).toBe(index < 2 ? 'hit' : 'ko');
     }
 
-    expect(repo.settle).toHaveBeenCalledWith('p1', 'p2', 'aura', 7);
+    expect(repo.settle).toHaveBeenCalledWith(
+      'p1',
+      'p2',
+      'aura',
+      7,
+      { player1Id: 'p1', player2Id: 'p2' },
+      'ko',
+    );
     expect(matches.has(matchId)).toBe(false);
   });
 
