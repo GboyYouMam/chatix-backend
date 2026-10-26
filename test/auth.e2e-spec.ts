@@ -3,11 +3,12 @@ import { INestApplication } from '@nestjs/common';
 import { createTestApp, registerAndLogin, banUser } from './utils/test-app';
 import { eq } from 'drizzle-orm';
 import { users } from '../src/database/scheme';
+import type { Db } from '../src/database/database.types';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
 suite('auth (e2e)', () => {
   let app: INestApplication;
-  let db: any;
+  let db: Db;
   let reset: () => Promise<void>;
   beforeAll(async () => {
     ({ app, db, reset } = await createTestApp());

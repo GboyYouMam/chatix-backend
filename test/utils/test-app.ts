@@ -5,10 +5,13 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import request from 'supertest';
 import { eq } from 'drizzle-orm';
+import { createRequire } from 'node:module';
 import * as schema from '../../src/database/scheme';
-import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { ConfigService } from '@nestjs/config';
+import type { Db } from '../../src/database/database.types';
+
+const loadModule = createRequire(__filename);
 
 export async function createTestApp(): Promise<{
   app: INestApplication;
@@ -21,6 +24,9 @@ export async function createTestApp(): Promise<{
   const connection = postgres(url);
   const db = drizzle(connection, { schema });
   await migrate(db, { migrationsFolder: './drizzle' });
+  const { AppModule } = loadModule('../../src/app.module') as {
+    AppModule: typeof import('../../src/app.module').AppModule;
+  };
   const module = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
@@ -59,14 +65,14 @@ export async function registerAndLogin(
     ).sub as string,
   };
 }
-export async function makeAdmin(db: any, userId: string) {
+export async function makeAdmin(db: Db, userId: string) {
   await db
     .update(schema.users)
     .set({ role: 'admin' })
     .where(eq(schema.users.id, userId));
 }
 export async function banUser(
-  db: any,
+  db: Db,
   userId: string,
   until: Date,
   reason: string,
