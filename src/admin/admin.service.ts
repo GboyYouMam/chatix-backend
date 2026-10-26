@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from '../users/users.repository';
 import * as scheme from '../database/scheme';
 import { MessagesRepository } from '../messages/messages.repository';

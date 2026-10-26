@@ -1,4 +1,4 @@
-﻿import { Test } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { FightClubGateway } from './fight-club.gateway';
 import { FightClubService } from './fight-club.service';
 import { WsAuthService } from '../auth/ws-auth.service';

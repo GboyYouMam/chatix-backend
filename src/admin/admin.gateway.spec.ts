@@ -1,4 +1,4 @@
-﻿import { Test } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { AdminGateway } from './admin.gateway';
 import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';

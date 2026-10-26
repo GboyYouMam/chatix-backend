@@ -1,4 +1,4 @@
-﻿import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
