@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateProfileCommentDto } from './dto/create-profile-comment.dto';
+import { PROFILE_IMAGE_POLICY } from '../storage/file-policy';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -66,12 +67,15 @@ export class UsersController {
 
   @Post('update')
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'file', maxCount: 1 },
-      { name: 'upper_banner', maxCount: 1 },
-      { name: 'left_banner', maxCount: 1 },
-      { name: 'right_banner', maxCount: 1 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'file', maxCount: PROFILE_IMAGE_POLICY.maxFiles },
+        { name: 'upper_banner', maxCount: PROFILE_IMAGE_POLICY.maxFiles },
+        { name: 'left_banner', maxCount: PROFILE_IMAGE_POLICY.maxFiles },
+        { name: 'right_banner', maxCount: PROFILE_IMAGE_POLICY.maxFiles },
+      ],
+      { limits: { fileSize: PROFILE_IMAGE_POLICY.maxBytes } },
+    ),
   )
   async updateProfile(
     @Body() body: UpdateProfileDto,

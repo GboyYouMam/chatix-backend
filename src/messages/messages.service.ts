@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
 import { StorageService } from '../storage/storage.service';
+import {
+  assertAllowed,
+  MESSAGE_ATTACHMENT_POLICY,
+} from '../storage/file-policy';
 
 @Injectable()
 export class MessagesService {
@@ -78,14 +82,16 @@ export class MessagesService {
 
     const attachments = await Promise.all(
       files.map(async (file) => {
-        const uploadedFile = await this.storageService.uploadFile(
+        const detected = await assertAllowed(file, MESSAGE_ATTACHMENT_POLICY);
+        const url = await this.storageService.upload(
           file,
-          authorId,
+          detected,
+          'attachments',
         );
         return {
-          url: uploadedFile.url,
+          url,
           fileName: file.originalname,
-          mimeType: file.mimetype,
+          mimeType: detected.mime,
           size: file.size,
         };
       }),

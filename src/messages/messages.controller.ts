@@ -18,6 +18,7 @@ import { RequestUser } from '../auth/dto/request-user.dto';
 import { CreateMessageDTO } from './dto/create-message.dto';
 import { AdminGuard } from '../auth/admin.guard';
 import { MessagesGateway } from './messages.gateway';
+import { MESSAGE_ATTACHMENT_POLICY } from '../storage/file-policy';
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -29,8 +30,8 @@ export class MessagesController {
 
   @Post()
   @UseInterceptors(
-    FilesInterceptor('attachments', 5, {
-      limits: { fileSize: 10 * 1024 * 1024 },
+    FilesInterceptor('attachments', MESSAGE_ATTACHMENT_POLICY.maxFiles, {
+      limits: { fileSize: MESSAGE_ATTACHMENT_POLICY.maxBytes },
     }),
   )
   async createMessage(

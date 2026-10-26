@@ -8,6 +8,7 @@ import { UpdateUserData, UsersRepository } from './users.repository';
 import { StorageService } from '../storage/storage.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileFilesDTO } from './dto/profile-files.dto';
+import { assertAllowed, PROFILE_IMAGE_POLICY } from '../storage/file-policy';
 
 @Injectable()
 export class UsersService {
@@ -55,32 +56,48 @@ export class UsersService {
 
     if (files) {
       if (files.file && files.file.length > 0) {
-        const fileData = await this.storageService.uploadFile(
+        const detected = await assertAllowed(
           files.file[0],
-          userId,
+          PROFILE_IMAGE_POLICY,
         );
-        updatePayload.pfp_url = fileData.url;
+        updatePayload.pfp_url = await this.storageService.upload(
+          files.file[0],
+          detected,
+          'profiles',
+        );
       }
       if (files.upper_banner && files.upper_banner.length > 0) {
-        const fileData = await this.storageService.uploadFile(
+        const detected = await assertAllowed(
           files.upper_banner[0],
-          userId,
+          PROFILE_IMAGE_POLICY,
         );
-        updatePayload.upper_banner_url = fileData.url;
+        updatePayload.upper_banner_url = await this.storageService.upload(
+          files.upper_banner[0],
+          detected,
+          'profiles',
+        );
       }
       if (files.left_banner && files.left_banner.length > 0) {
-        const fileData = await this.storageService.uploadFile(
+        const detected = await assertAllowed(
           files.left_banner[0],
-          userId,
+          PROFILE_IMAGE_POLICY,
         );
-        updatePayload.left_banner_url = fileData.url;
+        updatePayload.left_banner_url = await this.storageService.upload(
+          files.left_banner[0],
+          detected,
+          'profiles',
+        );
       }
       if (files.right_banner && files.right_banner.length > 0) {
-        const fileData = await this.storageService.uploadFile(
+        const detected = await assertAllowed(
           files.right_banner[0],
-          userId,
+          PROFILE_IMAGE_POLICY,
         );
-        updatePayload.right_banner_url = fileData.url;
+        updatePayload.right_banner_url = await this.storageService.upload(
+          files.right_banner[0],
+          detected,
+          'profiles',
+        );
       }
     }
 
