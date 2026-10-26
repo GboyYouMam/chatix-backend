@@ -55,6 +55,8 @@ export class UsersRepository {
       where: eq(scheme.users.username, username),
       columns: {
         password: false,
+        tokenVersion: false,
+        autoBannedAt: false,
       },
     });
   }
