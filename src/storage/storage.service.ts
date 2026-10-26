@@ -81,4 +81,15 @@ export class StorageService {
       throw new InternalServerErrorException('Cannot save this file lmao');
     }
   }
+
+  async removeUploadedFile(fileUrl: string): Promise<void> {
+    const segments = new URL(fileUrl).pathname.split('/').filter(Boolean);
+    const bucketIndex = segments.indexOf(this.bucketName);
+    if (bucketIndex < 0)
+      throw new Error('Uploaded file URL is outside the bucket');
+    await this.minioClient.removeObject(
+      this.bucketName,
+      segments.slice(bucketIndex + 1).join('/'),
+    );
+  }
 }

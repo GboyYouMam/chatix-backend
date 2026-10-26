@@ -8,7 +8,14 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Logger, UseFilters, UsePipes } from '@nestjs/common';
+import {
+  HttpException,
+  Logger,
+  UnauthorizedException,
+  UseFilters,
+  UsePipes,
+} from '@nestjs/common';
+import { WsException } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service';
 import { WsAuthService } from '../auth/ws-auth.service';
@@ -17,6 +24,7 @@ import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
 import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
 import { wsAuthError } from '../auth/ws-auth-error';
 import { socketUserData } from '../auth/socket-user';
+import { JoinRoomDto } from './dto/join-room.dto';
 
 @UseFilters(WsExceptionsFilter)
 @UsePipes(wsValidationPipe)
@@ -62,9 +70,19 @@ export class MessagesGateway
   }
   @SubscribeMessage('joinRoom')
   async handleJoinRoom(
-    @MessageBody() roomId: string,
+    @MessageBody() payload: JoinRoomDto,
     @ConnectedSocket() client: Socket,
   ) {
-    await client.join(roomId);
+    const userId = socketUserData(client).user?.userId;
+    if (!userId) throw new UnauthorizedException('Authentication required');
+    try {
+      await this.messagesService.assertCanAccess(payload.roomId, userId);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw new WsException(error.message);
+      }
+      throw error;
+    }
+    await client.join(payload.roomId);
   }
 }

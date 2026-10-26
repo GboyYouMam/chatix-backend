@@ -9,6 +9,7 @@ import {
   Delete,
   UploadedFiles,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { MessagesService } from './messages.service';
@@ -21,6 +22,7 @@ import { MessagesGateway } from './messages.gateway';
 import { MESSAGE_ATTACHMENT_POLICY } from '../storage/file-policy';
 import { Throttle } from '@nestjs/throttler';
 import { UserThrottlerGuard } from '../common/guards/user-throttler.guard';
+import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -56,8 +58,12 @@ export class MessagesController {
   }
 
   @Get(':roomId')
-  async getHistory(@Param('roomId') roomId: string) {
-    return this.messagesService.getRoomHistory(roomId);
+  async getHistory(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: RequestUser,
+    @Query() query: GetMessagesQueryDto,
+  ) {
+    return this.messagesService.getRoomHistory(roomId, user.userId, query);
   }
 
   @UseGuards(AdminGuard)

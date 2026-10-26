@@ -55,6 +55,18 @@ export class RoomService {
     return toPublicRoom(room);
   }
 
+  async assertCanAccess(roomId: string, userId: string): Promise<void> {
+    const room = await this.roomsRepository.findById(roomId);
+    if (!room) throw new NotFoundException('Room not found');
+    if (
+      room.publicity === 'private' &&
+      room.creatorId !== userId &&
+      !(await this.roomsRepository.checkAccess(roomId, userId))
+    ) {
+      throw new ForbiddenException('private room. know the password or leave.');
+    }
+  }
+
   async getRoomsByPublicity(publicity: 'public' | 'private') {
     return (await this.roomsRepository.findRoomsByPublicity(publicity)).map(
       toPublicRoom,
