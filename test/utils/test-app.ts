@@ -1,0 +1,78 @@
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
+import request from 'supertest';
+import { eq } from 'drizzle-orm';
+import * as schema from '../../src/database/scheme';
+import { AppModule } from '../../src/app.module';
+import { configureApp } from '../../src/app.setup';
+import { ConfigService } from '@nestjs/config';
+
+export async function createTestApp(): Promise<{
+  app: INestApplication;
+  db: ReturnType<typeof drizzle<typeof schema>>;
+  reset(): Promise<void>;
+}> {
+  const url = process.env.DATABASE_URL_TEST;
+  if (!url) throw new Error('DATABASE_URL_TEST is required to run e2e tests');
+  process.env.DATABASE_URL = url;
+  const connection = postgres(url);
+  const db = drizzle(connection, { schema });
+  await migrate(db, { migrationsFolder: './drizzle' });
+  const module = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
+  const app = module.createNestApplication();
+  configureApp(app, app.get(ConfigService));
+  await app.init();
+  return {
+    app,
+    db,
+    reset: async () => {
+      await connection`TRUNCATE admin_audit_logs, user_warnings, message_attachments, messages, profile_comments, profile_respects, room_accesses, rooms, users CASCADE`;
+    },
+  };
+}
+
+export async function registerAndLogin(
+  app: INestApplication,
+  username: string,
+  password: string,
+) {
+  await request(app.getHttpServer())
+    .post('/auth/register')
+    .send({ username, password })
+    .expect(201);
+  const response = await request(app.getHttpServer())
+    .post('/auth/login')
+    .send({ username, password })
+    .expect(201);
+  return {
+    token: response.body.access_token,
+    userId: JSON.parse(
+      Buffer.from(
+        response.body.access_token.split('.')[1],
+        'base64',
+      ).toString(),
+    ).sub as string,
+  };
+}
+export async function makeAdmin(db: any, userId: string) {
+  await db
+    .update(schema.users)
+    .set({ role: 'admin' })
+    .where(eq(schema.users.id, userId));
+}
+export async function banUser(
+  db: any,
+  userId: string,
+  until: Date,
+  reason: string,
+) {
+  await db
+    .update(schema.users)
+    .set({ bannedUntil: until, banReason: reason })
+    .where(eq(schema.users.id, userId));
+}
