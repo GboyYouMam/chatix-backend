@@ -57,6 +57,15 @@ export class UsersRepository {
         password: false,
         tokenVersion: false,
         autoBannedAt: false,
+        debtPaidCount: false,
+        messagesCount: false,
+        auraFarmCount: false,
+        fightsWon: false,
+        fightsLost: false,
+        winStreak: false,
+        lossStreak: false,
+        lastSeenAt: false,
+        timezone: false,
       },
     });
   }
@@ -190,12 +199,26 @@ export class UsersRepository {
   async payDebt(userId: string) {
     const [updatedUser] = await this.db
       .update(scheme.users)
-      .set({ debt: sql`${scheme.users.debt} - 1` })
+      .set({
+        debt: sql`${scheme.users.debt} - 1`,
+        debtPaidCount: sql`${scheme.users.debtPaidCount} + 1`,
+      })
       .where(and(eq(scheme.users.id, userId), sql`${scheme.users.debt} > 0`))
-      .returning({ id: scheme.users.id, debt: scheme.users.debt });
+      .returning({
+        id: scheme.users.id,
+        debt: scheme.users.debt,
+        debtPaidCount: scheme.users.debtPaidCount,
+      });
     if (updatedUser) return { ...updatedUser, paid: true };
     const user = await this.findById(userId);
-    return user ? { id: user.id, debt: user.debt, paid: false } : undefined;
+    return user
+      ? {
+          id: user.id,
+          debt: user.debt,
+          paid: false,
+          debtPaidCount: user.debtPaidCount,
+        }
+      : undefined;
   }
 
   async findProfileComments(profileUserId: string, limit = 50) {

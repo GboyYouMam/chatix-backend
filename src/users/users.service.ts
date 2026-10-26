@@ -66,7 +66,7 @@ export class UsersService {
         : (user.timezone ?? undefined),
     );
     if (user.bannedUntil && user.bannedUntil <= new Date()) {
-      await this.achievements.grant(userId, 'survivor');
+      await this.achievements.grantSafely(userId, 'survivor');
     }
   }
 
@@ -151,16 +151,27 @@ export class UsersService {
       throw new NotFoundException('This user not found ughhhh');
     }
 
-    const [comments, hasRespected, activeWarnings] = await Promise.all([
-      this.usersRepository.findProfileComments(user.id),
-      viewerId
-        ? this.usersRepository.hasRespectedProfile(user.id, viewerId)
-        : false,
-      this.usersRepository.findActiveWarnings(user.id),
-    ]);
+    const [comments, hasRespected, activeWarnings, achievements] =
+      await Promise.all([
+        this.usersRepository.findProfileComments(user.id),
+        viewerId
+          ? this.usersRepository.hasRespectedProfile(user.id, viewerId)
+          : false,
+        this.usersRepository.findActiveWarnings(user.id),
+        this.usersRepository.findAchievements(user.id),
+      ]);
 
     return {
       ...user,
+      achievements: achievements.map(({ key, unlockedAt }) => ({
+        key,
+        unlockedAt,
+      })),
+      featuredAchievements: user.featuredAchievements,
+      fightTitle:
+        user.fightTitleUntil && user.fightTitleUntil > new Date()
+          ? user.fightTitle
+          : null,
       activeWarnings: activeWarnings.map(({ reason, createdAt }) => ({
         reason,
         createdAt: createdAt.toISOString(),
@@ -220,6 +231,7 @@ export class UsersService {
       profileUser.id,
       admirerId,
     );
+    await this.achievements.evaluate(profileUser.id, 'respect');
     return {
       message: respect.alreadyRespected
         ? 'Respect already given'
@@ -244,6 +256,10 @@ export class UsersService {
     if (!updated) throw new NotFoundException('User not found');
     if (!updated.paid)
       return { message: 'You have no debt, bro. Chill.', debt: 0 };
+    await this.achievements.evaluate(userId, 'debt');
+    if ((updated.debtPaidCount ?? 0) >= 100) {
+      await this.achievements.grantSafely(userId, 'debt_free');
+    }
     return {
       message: '-1 credit. Keep grinding, bum.',
       debt: updated?.debt,
