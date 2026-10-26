@@ -60,7 +60,7 @@ async function main() {
       }[]
     >`SELECT player1_id, player2_id, winner_id, stake_amount, outcome, created_at
       FROM fights ORDER BY created_at DESC`;
-    const fightHistory = new Map<string, typeof fightRows>();
+    const fightHistory = new Map<string, Array<(typeof fightRows)[number]>>();
     for (const fight of fightRows) {
       for (const userId of [fight.player1_id, fight.player2_id]) {
         if (!userId) continue;
