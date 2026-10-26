@@ -15,6 +15,11 @@ import { ConfigService } from '@nestjs/config';
 import { ipTag } from '../common/net/ip-tag';
 import { toPublicMessage } from './message.serializer';
 import { AchievementsService } from '../achievements/achievements.service';
+import {
+  CosmeticsService,
+  DEFAULT_PUBLIC_COSMETICS,
+  toAuthorCosmetics,
+} from '../shop/cosmetics.service';
 
 type MessageAttachmentInput = {
   url: string;
@@ -37,6 +42,7 @@ export class MessagesService {
     private readonly roomsService: RoomService,
     private readonly config: ConfigService,
     private readonly achievements: AchievementsService,
+    private readonly cosmetics: CosmeticsService,
   ) {}
 
   async sendMessage(
@@ -136,9 +142,7 @@ export class MessagesService {
           await this.achievements.evaluate(authorId, 'message');
           const grants: Promise<boolean>[] = [];
           if (roomWasQuiet)
-            grants.push(
-              this.achievements.grantSafely(authorId, 'necromancer'),
-            );
+            grants.push(this.achievements.grantSafely(authorId, 'necromancer'));
           if (user.timezone) {
             try {
               const hour = new Intl.DateTimeFormat('en', {
@@ -163,17 +167,21 @@ export class MessagesService {
           });
         }
       }
-      return message
-        ? toPublicMessage(
-            message,
-            message.ipAddress
-              ? ipTag(
-                  message.ipAddress,
-                  this.config.getOrThrow<string>('IP_TAG_SECRET'),
-                )
-              : null,
-          )
-        : message;
+      if (!message) return message;
+      const authorCosmetics = toAuthorCosmetics(
+        (await this.cosmetics.forUsers([authorId])).get(authorId) ??
+          DEFAULT_PUBLIC_COSMETICS,
+      );
+      return toPublicMessage(
+        message,
+        message.ipAddress
+          ? ipTag(
+              message.ipAddress,
+              this.config.getOrThrow<string>('IP_TAG_SECRET'),
+            )
+          : null,
+        authorCosmetics,
+      );
     } catch (error) {
       await Promise.all(
         uploadedUrls.map(async (url) => {
@@ -201,6 +209,12 @@ export class MessagesService {
   ) {
     await this.roomsService.assertCanAccess(roomId, userId);
     const history = await this.messagesRepository.getRoomHistory(roomId, query);
+    // One cosmetics lookup per page, not per message.
+    const cosmetics = await this.cosmetics.forUsers(
+      history.items.flatMap((message) =>
+        message.author ? [message.author.id] : [],
+      ),
+    );
     return {
       ...history,
       items: history.items.map((message) =>
@@ -212,6 +226,11 @@ export class MessagesService {
                 this.config.getOrThrow<string>('IP_TAG_SECRET'),
               )
             : null,
+          message.author
+            ? toAuthorCosmetics(
+                cosmetics.get(message.author.id) ?? DEFAULT_PUBLIC_COSMETICS,
+              )
+            : undefined,
         ),
       ),
     };
