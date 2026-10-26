@@ -134,6 +134,15 @@ suite('Messages security and pagination (e2e)', () => {
     expect(after).toHaveLength(before.length);
   });
 
+  it('rejects a non-uuid roomId with 400 instead of a server error', async () => {
+    await request(app.getHttpServer())
+      .post('/messages')
+      .set('Authorization', `Bearer ${token}`)
+      .field('roomId', 'undefined')
+      .field('cipherText', 'hello')
+      .expect(400);
+  });
+
   it('allows only admins to delete and keeps a tombstone in history', async () => {
     const message = await request(app.getHttpServer())
       .post('/messages')
