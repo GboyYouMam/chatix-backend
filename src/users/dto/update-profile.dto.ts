@@ -1,29 +1,19 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { USERNAME_REGEX } from '../../auth/auth.constants';
 
 export class UpdateProfileDto {
-    @IsOptional()
-    @IsString()
-    @MaxLength(50)
-    vibe?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  vibe?: string;
 
-    @IsOptional()
-    @IsString()
-    @MaxLength(300)
-    description?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
 
-    @IsOptional()
-    @IsString()
-    username?: string;
-
-    @IsOptional()
-    file?: any;
-
-    @IsOptional()
-    upper_banner?: any;
-
-    @IsOptional()
-    left_banner?: any;
-
-    @IsOptional()
-    right_banner?: any;
+  @IsOptional()
+  @IsString()
+  @Matches(USERNAME_REGEX)
+  username?: string;
 }

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -42,8 +43,15 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    if (!user.canChangeProfile) {
+      throw new ForbiddenException('ur profile is frozen by the admins. cope.');
+    }
 
-    const updatePayload: UpdateUserData = { ...data };
+    const updatePayload: UpdateUserData = {
+      ...(data.username !== undefined && { username: data.username }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.vibe !== undefined && { vibe: data.vibe }),
+    };
 
     if (files) {
       if (files.file && files.file.length > 0) {
@@ -172,14 +180,8 @@ export class UsersService {
   }
 
   async auraFarming(userId: string) {
-    const user = await this.usersRepository.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const newAura = Number(user.aura) + 1;
-
-    await this.usersRepository.updateProfile(userId, { aura: newAura });
+    const newAura = await this.usersRepository.incrementAura(userId);
+    if (newAura === undefined) throw new NotFoundException('User not found');
 
     return {
       aura: newAura,
