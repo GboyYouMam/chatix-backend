@@ -10,6 +10,7 @@ import {
   UploadedFiles,
   UseInterceptors,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { MessagesService } from './messages.service';
@@ -63,7 +64,7 @@ export class MessagesController {
 
   @Get(':roomId')
   async getHistory(
-    @Param('roomId') roomId: string,
+    @Param('roomId', ParseUUIDPipe) roomId: string,
     @CurrentUser() user: RequestUser,
     @Query() query: GetMessagesQueryDto,
   ) {
@@ -73,7 +74,7 @@ export class MessagesController {
   @UseInterceptors(AdminAuditInterceptor)
   @Delete(':id')
   async deleteMessage(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
   ) {
     return this.messagesService.deleteMessage(id, user);

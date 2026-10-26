@@ -9,6 +9,7 @@ import {
   Delete,
   Query,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -46,7 +47,7 @@ export class RoomsController {
   }
 
   @Get(':id')
-  async getRoom(@Param('id') id: string) {
+  async getRoom(@Param('id', ParseUUIDPipe) id: string) {
     return this.roomsService.getRoomsDetails(id);
   }
 
@@ -58,7 +59,7 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   async updateRoom(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateRoomDTO,
     @CurrentUser() user: RequestUser,
   ) {
@@ -69,7 +70,7 @@ export class RoomsController {
   @UseInterceptors(AdminAuditInterceptor)
   @Patch(':id/status')
   async updateRoomStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateRoomStatusDto,
   ) {
     return this.roomsService.updateRoomStatus(id, body.status);
@@ -78,7 +79,7 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id/publicity')
   async updateRoomPublicity(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateRoomPublicityDto,
     @CurrentUser() user: RequestUser,
   ) {
@@ -87,7 +88,10 @@ export class RoomsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async deleteRoom(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  async deleteRoom(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     await this.roomsService.deleteRoom(id, user.userId);
     return { message: 'ERASED' };
   }
@@ -96,7 +100,7 @@ export class RoomsController {
   @Post(':id/join')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async joinPrivateRoom(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('password') password: string,
     @CurrentUser() user: RequestUser,
   ) {

@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AdminGuard } from '../auth/admin.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -28,18 +29,21 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Patch('rooms/:id/quarantine')
-  quarantineRoom(@Param('id') id: string, @Body() body: QuarantineRoomDTO) {
+  quarantineRoom(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: QuarantineRoomDTO,
+  ) {
     return this.adminService.quarantineRoom(id, body.reason);
   }
 
   @Patch('rooms/:id/unquarantine')
-  unquarantineRoom(@Param('id') id: string) {
+  unquarantineRoom(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.unquarantineRoom(id);
   }
 
   @Patch('users/:id/modifiers')
   updateUserModifiers(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateUserModifiersDTO,
   ) {
     return this.adminService.updateModifiers(id, body);
@@ -47,7 +51,7 @@ export class AdminController {
 
   @Post('users/:id/warnings')
   addWarning(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: CreateWarningDTO,
     @CurrentUser() admin: RequestUser,
   ) {
@@ -55,25 +59,28 @@ export class AdminController {
   }
 
   @Get('users/:id/warnings')
-  getWarnings(@Param('id') id: string, @Query() query: AdminPaginationDTO) {
+  getWarnings(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: AdminPaginationDTO,
+  ) {
     return this.adminService.getWarnings(id, query);
   }
 
   @Delete('users/:userId/warnings/:warningId')
   revokeWarning(
-    @Param('userId') userId: string,
-    @Param('warningId') warningId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Param('warningId', ParseUUIDPipe) warningId: string,
   ) {
     return this.adminService.revokeWarning(userId, warningId);
   }
 
   @Delete('users/:id/vaporize')
-  vaporizeUser(@Param('id') id: string) {
+  vaporizeUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.vaporizeUser(id);
   }
 
   @Delete('messages/:id')
-  deleteMessage(@Param('id') id: string) {
+  deleteMessage(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.deleteMessage(id);
   }
 
@@ -83,7 +90,7 @@ export class AdminController {
   }
 
   @Get('users/:id')
-  getUser(@Param('id') id: string) {
+  getUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.getUser(id);
   }
 
@@ -93,7 +100,7 @@ export class AdminController {
   }
 
   @Get('rooms/:id')
-  getRoom(@Param('id') id: string) {
+  getRoom(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.getRoom(id);
   }
 
