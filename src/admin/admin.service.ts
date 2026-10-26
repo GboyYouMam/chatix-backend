@@ -61,11 +61,7 @@ export class AdminService {
     return { message: 'Room unquarantined', room: adminRoom };
   }
 
-  async updateModifiers(
-    adminId: string,
-    userId: string,
-    dto: UpdateUserModifiersDTO,
-  ) {
+  async updateModifiers(userId: string, dto: UpdateUserModifiersDTO) {
     const { bannedUntil, yapCooldown, auraDelta, debtDelta, ...fields } = dto;
     const modifiers: Parameters<AdminRepository['updateModifiers']>[1] = {
       ...fields,
@@ -102,7 +98,6 @@ export class AdminService {
       });
       this.realtime.disconnectUser(userId);
     }
-    void adminId;
     return safeUser;
   }
 
@@ -117,9 +112,7 @@ export class AdminService {
     const warnings = await this.adminRepository.countActiveWarnings([userId]);
     const safeUser = toAdminUser(user, warnings.get(userId) ?? 0);
     if (autoBanned) {
-      this.logger.warn(
-        JSON.stringify({ event: 'user.autobanned', adminId, userId }),
-      );
+      this.logger.warn({ event: 'user.autobanned', adminId, userId });
       this.realtime.emitToUser(userId, 'user:banned', {
         bannedUntil: safeUser.bannedUntil,
         banReason: safeUser.banReason,

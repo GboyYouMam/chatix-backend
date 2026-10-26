@@ -41,9 +41,8 @@ export class AdminController {
   updateUserModifiers(
     @Param('id') id: string,
     @Body() body: UpdateUserModifiersDTO,
-    @CurrentUser() admin: RequestUser,
   ) {
-    return this.adminService.updateModifiers(admin.userId, id, body);
+    return this.adminService.updateModifiers(id, body);
   }
 
   @Post('users/:id/warnings')
