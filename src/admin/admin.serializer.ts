@@ -2,7 +2,9 @@ import { toPublicRoom } from '../rooms/room/room.serializer';
 import type * as scheme from '../database/scheme';
 
 export function toAdminUser(
-  row: typeof scheme.users.$inferSelect,
+  row: Omit<typeof scheme.users.$inferSelect, 'password'> & {
+    password?: string;
+  },
   activeWarningsCount: number,
 ) {
   const bannedUntil = row.bannedUntil;

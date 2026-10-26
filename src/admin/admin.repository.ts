@@ -95,14 +95,32 @@ export class AdminRepository {
 
   async updateModifiers(
     userId: string,
-    modifiers: Partial<typeof scheme.users.$inferInsert>,
+    modifiers: Partial<typeof scheme.users.$inferInsert> & {
+      auraDelta?: number;
+      debtDelta?: number;
+    },
   ) {
-    const [updatedUser] = await this.db
-      .update(scheme.users)
-      .set(modifiers)
-      .where(eq(scheme.users.id, userId))
-      .returning();
-    return updatedUser;
+    return this.db.transaction(async (tx) => {
+      const { auraDelta, debtDelta, ...fields } = modifiers;
+      const updates = {
+        ...fields,
+        ...(auraDelta !== undefined
+          ? { aura: sql`${scheme.users.aura} + ${auraDelta}` }
+          : {}),
+        ...(debtDelta !== undefined
+          ? { debt: sql`${scheme.users.debt} + ${debtDelta}` }
+          : {}),
+        ...(fields.bannedUntil && fields.bannedUntil > new Date()
+          ? { tokenVersion: sql`${scheme.users.tokenVersion} + 1` }
+          : {}),
+      };
+      const [updatedUser] = await tx
+        .update(scheme.users)
+        .set(updates)
+        .where(eq(scheme.users.id, userId))
+        .returning();
+      return updatedUser;
+    });
   }
 
   async createWarning(userId: string, adminId: string, reason: string) {

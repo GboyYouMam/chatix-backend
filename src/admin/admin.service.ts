@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from '../users/users.repository';
-import * as scheme from '../database/scheme';
 import { MessagesRepository } from '../messages/messages.repository';
 import { AdminPageOptions, AdminRepository } from './admin.repository';
 import { toAdminRoom, toAdminUser } from './admin.serializer';
+import { RealtimeService } from '../realtime/realtime.service';
+import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
 
 @Injectable()
 export class AdminService {
@@ -11,6 +12,7 @@ export class AdminService {
     private readonly adminRepository: AdminRepository,
     private readonly usersRepository: UsersRepository,
     private readonly messagesRepository: MessagesRepository,
+    private readonly realtime: RealtimeService,
   ) {}
 
   private page<T>(
@@ -41,14 +43,48 @@ export class AdminService {
   }
 
   async updateModifiers(
+    adminId: string,
     userId: string,
-    modifiers: Partial<typeof scheme.users.$inferInsert>,
+    dto: UpdateUserModifiersDTO,
   ) {
+    const { bannedUntil, yapCooldown, auraDelta, debtDelta, ...fields } = dto;
+    const modifiers: Parameters<AdminRepository['updateModifiers']>[1] = {
+      ...fields,
+      auraDelta,
+      debtDelta,
+      ...(bannedUntil !== undefined
+        ? { bannedUntil: bannedUntil ? new Date(bannedUntil) : null }
+        : {}),
+      ...(yapCooldown !== undefined
+        ? { yapCooldown: yapCooldown ? new Date(yapCooldown) : null }
+        : {}),
+    };
+    if (bannedUntil === null) {
+      modifiers.banReason = null;
+      modifiers.autoBannedAt = null;
+    }
+    const changed = Object.keys(dto).length > 0;
+    if (!changed) {
+      const current = await this.adminRepository.findUser(userId);
+      if (!current) throw new NotFoundException('User not found');
+      const warnings = await this.adminRepository.countActiveWarnings([userId]);
+      return toAdminUser(current, warnings.get(userId) ?? 0);
+    }
     const user = await this.adminRepository.updateModifiers(userId, modifiers);
     if (!user) throw new NotFoundException('User not found');
-    const { password, ...safeUser } = user;
-    void password;
-    return { message: 'User modifiers updated', user: safeUser };
+    const warnings = await this.adminRepository.countActiveWarnings([userId]);
+    const safeUser = toAdminUser(user, warnings.get(userId) ?? 0);
+    this.realtime.emitToAdmins('admin:user_updated', { user: safeUser });
+    this.realtime.emitToUser(userId, 'user:updated', { userId });
+    if (bannedUntil && new Date(bannedUntil) > new Date()) {
+      this.realtime.emitToUser(userId, 'user:banned', {
+        bannedUntil: safeUser.bannedUntil,
+        banReason: safeUser.banReason,
+      });
+      this.realtime.disconnectUser(userId);
+    }
+    void adminId;
+    return safeUser;
   }
 
   async addWarning(userId: string, adminId: string, reason: string) {

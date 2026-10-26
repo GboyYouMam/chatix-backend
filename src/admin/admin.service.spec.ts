@@ -3,6 +3,7 @@ import { AdminService } from './admin.service';
 import { AdminRepository } from './admin.repository';
 import { UsersRepository } from '../users/users.repository';
 import { MessagesRepository } from '../messages/messages.repository';
+import { RealtimeService } from '../realtime/realtime.service';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -14,6 +15,7 @@ describe('AdminService', () => {
         { provide: AdminRepository, useValue: {} },
         { provide: UsersRepository, useValue: {} },
         { provide: MessagesRepository, useValue: {} },
+        { provide: RealtimeService, useValue: {} },
       ],
     }).compile();
 

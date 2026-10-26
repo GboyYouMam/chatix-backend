@@ -41,16 +41,9 @@ export class AdminController {
   updateUserModifiers(
     @Param('id') id: string,
     @Body() body: UpdateUserModifiersDTO,
+    @CurrentUser() admin: RequestUser,
   ) {
-    const modifiersToApply: Record<string, unknown> = {
-      ...body,
-      bannedUntil: body.bannedUntil ? new Date(body.bannedUntil) : undefined,
-      yapCooldown: body.yapCooldown ? new Date(body.yapCooldown) : undefined,
-    };
-    Object.keys(modifiersToApply).forEach((key) => {
-      if (modifiersToApply[key] === undefined) delete modifiersToApply[key];
-    });
-    return this.adminService.updateModifiers(id, modifiersToApply);
+    return this.adminService.updateModifiers(admin.userId, id, body);
   }
 
   @Post('users/:id/warnings')
