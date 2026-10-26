@@ -14,6 +14,7 @@ import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
 import { ConfigService } from '@nestjs/config';
 import { ipTag } from '../common/net/ip-tag';
 import { toPublicMessage } from './message.serializer';
+import { AchievementsService } from '../achievements/achievements.service';
 
 type MessageAttachmentInput = {
   url: string;
@@ -35,6 +36,7 @@ export class MessagesService {
     private readonly realtime: RealtimeService,
     private readonly roomsService: RoomService,
     private readonly config: ConfigService,
+    private readonly achievements: AchievementsService,
   ) {}
 
   async sendMessage(
@@ -117,6 +119,10 @@ export class MessagesService {
           size: file.size,
         });
       }
+      const roomWasQuiet = await this.messagesRepository.wasRoomSilentFor(
+        roomId,
+        30 * 86400000,
+      );
       const message = await this.messagesRepository.create(
         roomId,
         authorId,
@@ -124,6 +130,39 @@ export class MessagesService {
         ipAddress,
         attachments,
       );
+      if (message) {
+        try {
+          await this.messagesRepository.incrementMessageCount(authorId);
+          await this.achievements.evaluate(authorId, 'message');
+          const grants: Promise<boolean>[] = [];
+          if (roomWasQuiet)
+            grants.push(
+              this.achievements.grantSafely(authorId, 'necromancer'),
+            );
+          if (user.timezone) {
+            try {
+              const hour = new Intl.DateTimeFormat('en', {
+                timeZone: user.timezone,
+                hour: '2-digit',
+                hourCycle: 'h23',
+              }).format(new Date());
+              if (hour === '03')
+                grants.push(
+                  this.achievements.grantSafely(authorId, 'night_owl'),
+                );
+            } catch {
+              // Invalid legacy time zones cannot block a message.
+            }
+          }
+          await Promise.allSettled(grants);
+        } catch (error) {
+          this.logger.error({
+            event: 'achievement.message_failed',
+            authorId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
       return message
         ? toPublicMessage(
             message,

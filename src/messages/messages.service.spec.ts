@@ -3,6 +3,9 @@ import { MessagesRepository } from './messages.repository';
 import { StorageService } from '../storage/storage.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { RequestUser } from '../auth/dto/request-user.dto';
+import { RoomService } from '../rooms/room/room.service';
+import { ConfigService } from '@nestjs/config';
+import { AchievementsService } from '../achievements/achievements.service';
 
 describe('MessagesService', () => {
   it('rejects more than five attachments', async () => {
@@ -10,6 +13,9 @@ describe('MessagesService', () => {
       {} as MessagesRepository,
       {} as StorageService,
       {} as RealtimeService,
+      {} as RoomService,
+      {} as ConfigService,
+      {} as AchievementsService,
     );
 
     await expect(
@@ -38,6 +44,9 @@ describe('MessagesService', () => {
       repository as unknown as MessagesRepository,
       {} as StorageService,
       realtime as unknown as RealtimeService,
+      {} as RoomService,
+      {} as ConfigService,
+      {} as AchievementsService,
     );
 
     await service.deleteMessage('m1', {

@@ -4,6 +4,7 @@ import { AdminRepository } from './admin.repository';
 import { UsersRepository } from '../users/users.repository';
 import { MessagesRepository } from '../messages/messages.repository';
 import { RealtimeService } from '../realtime/realtime.service';
+import { AchievementsService } from '../achievements/achievements.service';
 
 describe('AdminService', () => {
   let service: AdminService;
@@ -26,6 +27,13 @@ describe('AdminService', () => {
         { provide: UsersRepository, useValue: usersRepository },
         { provide: MessagesRepository, useValue: {} },
         { provide: RealtimeService, useValue: realtime },
+        {
+          provide: AchievementsService,
+          useValue: {
+            grantSafely: jest.fn().mockResolvedValue(false),
+            evaluate: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 

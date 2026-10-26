@@ -10,10 +10,17 @@ import { AdminGateway } from './admin.gateway';
 import { AdminActivityLogger } from './admin-activity-logger.service';
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import { AuthModule } from '../auth/auth.module';
+import { AchievementsModule } from '../achievements/achievements.module';
 
 @Global()
 @Module({
-  imports: [UsersModule, RoomsModule, MessagesModule, AuthModule],
+  imports: [
+    UsersModule,
+    RoomsModule,
+    MessagesModule,
+    AuthModule,
+    AchievementsModule,
+  ],
   controllers: [AdminController],
   providers: [
     AdminService,

@@ -10,12 +10,14 @@ import { CreateRoomDTO } from './dto/create-room.dto';
 import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 import { toPublicRoom } from './room.serializer';
 import { RoomsRepository } from './rooms.repository';
+import { AchievementsService } from '../../achievements/achievements.service';
 
 @Injectable()
 export class RoomService {
   constructor(
     private readonly roomsRepository: RoomsRepository,
     private readonly realtime: RealtimeService,
+    private readonly achievements: AchievementsService,
   ) {}
 
   private isRoomNameConflict(error: unknown): boolean {
@@ -182,6 +184,11 @@ export class RoomService {
     if (!existing) throw new NotFoundException('Room not found');
     const room = await this.roomsRepository.updateStatus(roomId, newStatus);
     if (room) {
+      if (newStatus === 'active') {
+        await this.achievements.grantSafely(existing.creatorId, 'landlord');
+      } else if (newStatus === 'quarantined') {
+        await this.achievements.grantSafely(existing.creatorId, 'ratio_d');
+      }
       const quarantined = newStatus === 'quarantined';
       this.realtime.emitToRoom(roomId, 'roomQuarantined', {
         roomId,

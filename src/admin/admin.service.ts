@@ -5,6 +5,7 @@ import { AdminPageOptions, AdminRepository } from './admin.repository';
 import { toAdminRoom, toAdminUser } from './admin.serializer';
 import { RealtimeService } from '../realtime/realtime.service';
 import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
+import { AchievementsService } from '../achievements/achievements.service';
 
 @Injectable()
 export class AdminService {
@@ -14,6 +15,7 @@ export class AdminService {
     private readonly usersRepository: UsersRepository,
     private readonly messagesRepository: MessagesRepository,
     private readonly realtime: RealtimeService,
+    private readonly achievements: AchievementsService,
   ) {}
 
   private page<T>(
@@ -42,6 +44,7 @@ export class AdminService {
       roomId,
       quarantined: true,
     });
+    await this.achievements.grantSafely(room.creatorId, 'ratio_d');
     this.realtime.emitToAdmins('admin:room_updated', { room: adminRoom });
     return { message: 'Room quarantined', room: adminRoom };
   }
@@ -89,6 +92,16 @@ export class AdminService {
     if (!user) throw new NotFoundException('User not found');
     const warnings = await this.adminRepository.countActiveWarnings([userId]);
     const safeUser = toAdminUser(user, warnings.get(userId) ?? 0);
+    await Promise.all([
+      this.achievements.evaluate(userId, 'aura'),
+      this.achievements.evaluate(userId, 'debt'),
+      ...(safeUser.isClown
+        ? [this.achievements.grantSafely(userId, 'clown_certified')]
+        : []),
+      ...(safeUser.adminGlazeMode
+        ? [this.achievements.grantSafely(userId, 'admins_favourite')]
+        : []),
+    ]);
     this.realtime.emitToAdmins('admin:user_updated', { user: safeUser });
     this.realtime.emitToUser(userId, 'user:updated', { userId });
     if (bannedUntil && new Date(bannedUntil) > new Date()) {
@@ -109,9 +122,11 @@ export class AdminService {
     );
     if (!result) throw new NotFoundException('User not found');
     const { warning, user, autoBanned } = result;
+    await this.achievements.evaluate(userId, 'warn');
     const warnings = await this.adminRepository.countActiveWarnings([userId]);
     const safeUser = toAdminUser(user, warnings.get(userId) ?? 0);
     if (autoBanned) {
+      await this.achievements.evaluate(userId, 'ban');
       this.logger.warn({ event: 'user.autobanned', adminId, userId });
       this.realtime.emitToUser(userId, 'user:banned', {
         bannedUntil: safeUser.bannedUntil,

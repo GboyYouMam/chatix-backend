@@ -45,6 +45,20 @@ export class AchievementsService {
     return true;
   }
 
+  async grantSafely(userId: string, key: string) {
+    try {
+      return await this.grant(userId, key);
+    } catch (error) {
+      this.logger.error({
+        event: 'achievement.grant_failed',
+        userId,
+        key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
   async evaluate(userId: string, trigger: AchievementTrigger) {
     try {
       const user = await this.db.query.users.findFirst({
@@ -89,7 +103,7 @@ export class AchievementsService {
       ) {
         keys.push('actually_went_touch_grass');
       }
-      await Promise.all(keys.map((key) => this.grant(userId, key)));
+      await Promise.all(keys.map((key) => this.grantSafely(userId, key)));
     } catch (error) {
       this.logger.error({
         event: 'achievement.evaluate_failed',
