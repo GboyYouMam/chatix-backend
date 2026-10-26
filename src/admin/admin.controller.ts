@@ -90,9 +90,19 @@ export class AdminController {
     return this.adminService.getUsers(query);
   }
 
+  @Get('users/:id')
+  getUser(@Param('id') id: string) {
+    return this.adminService.getUser(id);
+  }
+
   @Get('rooms')
   getRooms(@Query() query: AdminPaginationDTO) {
     return this.adminService.getRooms(query);
+  }
+
+  @Get('rooms/:id')
+  getRoom(@Param('id') id: string) {
+    return this.adminService.getRoom(id);
   }
 
   @Get('messages')

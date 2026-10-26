@@ -1,5 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
@@ -29,6 +39,41 @@ export class AdminRepository {
     @Inject(DB_CONNECTION)
     private readonly db: PostgresJsDatabase<typeof scheme>,
   ) {}
+
+  async findUser(userId: string) {
+    return this.db.query.users.findFirst({
+      where: eq(scheme.users.id, userId),
+    });
+  }
+
+  async findRoom(roomId: string) {
+    return this.db.query.rooms.findFirst({
+      where: eq(scheme.rooms.id, roomId),
+    });
+  }
+
+  async countActiveWarnings(userIds: string[]) {
+    if (!userIds.length) return new Map<string, number>();
+    const rows = await this.db
+      .select({ userId: scheme.userWarnings.userId, total: count() })
+      .from(scheme.userWarnings)
+      .where(
+        and(
+          inArray(scheme.userWarnings.userId, userIds),
+          isNull(scheme.userWarnings.revokedAt),
+        ),
+      )
+      .groupBy(scheme.userWarnings.userId);
+    return new Map(rows.map(({ userId, total }) => [userId, total]));
+  }
+
+  async countRoomMessages(roomId: string) {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(scheme.messages)
+      .where(eq(scheme.messages.roomId, roomId));
+    return total;
+  }
 
   async quarantineRoom(roomId: string, reason: string) {
     const [room] = await this.db
@@ -118,7 +163,14 @@ export class AdminRepository {
       }),
       this.db.select({ total: count() }).from(scheme.users).where(where),
     ]);
-    return { items, total };
+    const warnings = await this.countActiveWarnings(items.map(({ id }) => id));
+    return {
+      items: items.map((user) => ({
+        ...user,
+        activeWarningsCount: warnings.get(user.id) ?? 0,
+      })),
+      total,
+    };
   }
 
   async findRooms(options: AdminPageOptions) {

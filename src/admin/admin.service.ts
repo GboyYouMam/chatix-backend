@@ -3,6 +3,7 @@ import { UsersRepository } from '../users/users.repository';
 import * as scheme from '../database/scheme';
 import { MessagesRepository } from '../messages/messages.repository';
 import { AdminPageOptions, AdminRepository } from './admin.repository';
+import { toAdminRoom, toAdminUser } from './admin.serializer';
 
 @Injectable()
 export class AdminService {
@@ -83,11 +84,50 @@ export class AdminService {
   }
 
   async getUsers(options: AdminPageOptions) {
-    return this.page(await this.adminRepository.findUsers(options), options);
+    const result = await this.adminRepository.findUsers(options);
+    return this.page(
+      {
+        ...result,
+        items: result.items.map((user) =>
+          toAdminUser(user, user.activeWarningsCount),
+        ),
+      },
+      options,
+    );
+  }
+
+  async getUser(userId: string) {
+    const user = await this.adminRepository.findUser(userId);
+    if (!user) throw new NotFoundException('no such chud');
+    const warnings = await this.adminRepository.countActiveWarnings([userId]);
+    return toAdminUser(user, warnings.get(userId) ?? 0);
   }
 
   async getRooms(options: AdminPageOptions) {
-    return this.page(await this.adminRepository.findRooms(options), options);
+    const result = await this.adminRepository.findRooms(options);
+    return this.page(
+      {
+        ...result,
+        items: await Promise.all(
+          result.items.map(async (room) =>
+            toAdminRoom(
+              room,
+              await this.adminRepository.countRoomMessages(room.id),
+            ),
+          ),
+        ),
+      },
+      options,
+    );
+  }
+
+  async getRoom(roomId: string) {
+    const room = await this.adminRepository.findRoom(roomId);
+    if (!room) throw new NotFoundException('Room not found');
+    return toAdminRoom(
+      room,
+      await this.adminRepository.countRoomMessages(roomId),
+    );
   }
 
   async getMessages(options: AdminPageOptions) {
