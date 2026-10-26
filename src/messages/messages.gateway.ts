@@ -1,63 +1,70 @@
-import {
+﻿import {
   WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
+import { Logger, UseFilters, UsePipes } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service';
-import {Logger} from "@nestjs/common";
+import { WsAuthService } from '../auth/ws-auth.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
+import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
+import { wsAuthError } from '../auth/ws-auth-error';
+import { socketUserData } from '../auth/socket-user';
 
-const logger = new Logger();
-
-@WebSocketGateway({ cors: { origin: '*' } })
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer()
-  server: Server;
-
-  constructor(private readonly messagesService: MessagesService) {}
-
-  handleConnection(client: Socket) {
-    logger.log(`bum connected: ${client.id}`);
+@UseFilters(WsExceptionsFilter)
+@UsePipes(wsValidationPipe)
+@WebSocketGateway()
+export class MessagesGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
+  @WebSocketServer() server: Server;
+  private readonly logger = new Logger(MessagesGateway.name);
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly auth: WsAuthService,
+    private readonly realtime: RealtimeService,
+  ) {}
+  afterInit(server: Server) {
+    this.server = server;
+    this.realtime.register('/', server);
   }
-
+  async handleConnection(client: Socket) {
+    try {
+      const user = await this.auth.authenticate(client);
+      await client.join(`user:${user.userId}`);
+      this.logger.log({
+        event: 'ws.connect',
+        userId: user.userId,
+        socketId: client.id,
+        namespace: '/',
+      });
+    } catch (error) {
+      client.emit('exception', wsAuthError(error));
+      client.disconnect(true);
+    }
+  }
   handleDisconnect(client: Socket) {
-    console.log(`bum disconnected: ${client.id}`);
+    this.logger.log({
+      event: 'ws.disconnect',
+      socketId: client.id,
+      userId: socketUserData(client).user?.userId,
+    });
   }
-
   broadcastMessage(roomId: string, message: unknown) {
     this.server.to(roomId).emit('newMessage', message);
   }
-
   @SubscribeMessage('joinRoom')
-  handleJoinRoom(
-      @MessageBody() roomId: string,
-      @ConnectedSocket() client: Socket,
+  async handleJoinRoom(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
   ) {
-    client.join(roomId);
-    logger.log(`bum ${client.id} joined room: ${roomId}`);
-  }
-
-  @SubscribeMessage('sendMessage')
-  async handleMessage(
-      @MessageBody() payload: { roomId: string; authorId: string; text: string },
-      @ConnectedSocket() client: Socket,
-  ) {
-    try {
-      const savedMessage = await this.messagesService.sendMessage(
-          payload.roomId,
-          payload.authorId,
-          payload.text,
-          client.handshake.address
-      );
-
-      this.broadcastMessage(payload.roomId, savedMessage);
-
-    } catch (error) {
-      client.emit('errorMessage', { message: error.message });
-    }
+    await client.join(roomId);
   }
 }

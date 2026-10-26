@@ -53,13 +53,13 @@
 ### Task 3: CORS, helmet, rate limit
 
 **Files:**
-- Create: `src/common/guards/user-throttler.guard.ts`
+- Create: `src/common/adapters/configured-io.adapter.ts`, `src/common/guards/user-throttler.guard.ts`
 - Modify: `src/app.setup.ts`, `src/app.module.ts`, `src/auth/auth.controller.ts`, `src/rooms/room/room.controller.ts` (`POST :id/join`), `src/users/users.controller.ts` (`farm-aura`), `src/messages/messages.controller.ts` (`POST /messages`), `package.json`
 - Test: `test/security.e2e-spec.ts`
 
 **Interfaces:**
-- `ConfiguredIoAdapter` і CORS для HTTP/WS **вже зроблені в BE-0** (`src/common/adapters/configured-io.adapter.ts`) — не дублювати; лише додати e2e-перевірку нижче.
-- `configureApp`: додати `app.use(helmet())`.
+- Produces: `ConfiguredIoAdapter extends IoAdapter` — `createIOServer(port, options)` підставляє `cors: { origin: parseCorsOrigins(CORS_ORIGINS), credentials: true }` для всіх namespace (прибрати `cors: { origin: '*' }` з декораторів gateway).
+- `configureApp`: `app.use(helmet())`, `app.enableCors({ origin: parseCorsOrigins(...), credentials: true })`, `app.useWebSocketAdapter(new ConfiguredIoAdapter(app))`.
 - Throttler: `ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }])` + `APP_GUARD: ThrottlerGuard`; `@Throttle({ default: { limit: 5, ttl: 60_000 } })` на `POST /auth/login`, `POST /auth/register`, `POST /rooms/:id/join`; `@SkipThrottle()` на `POST /users/farm-aura`.
 - Produces: `UserThrottlerGuard extends ThrottlerGuard` — `getTracker(req)` повертає `req.user?.userId ?? req.ip`; на `POST /messages`: `@SkipThrottle()` для глобального + `@UseGuards(JwtAuthGuard, UserThrottlerGuard)` + `@Throttle({ default: { limit: 20, ttl: 60_000 } })`.
 - 429 проходить через `AllExceptionsFilter` з `message: 'chill. too many requests.'`.

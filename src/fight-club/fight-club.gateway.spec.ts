@@ -1,40 +1,35 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+﻿import { Test } from '@nestjs/testing';
 import { FightClubGateway } from './fight-club.gateway';
 import { FightClubService } from './fight-club.service';
+import { WsAuthService } from '../auth/ws-auth.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 describe('FightClubGateway', () => {
   let gateway: FightClubGateway;
-  let jwtService: { verifyAsync: jest.Mock };
-
+  const auth = { authenticate: jest.fn() };
   beforeEach(async () => {
-    jwtService = { verifyAsync: jest.fn() };
-    const module: TestingModule = await Test.createTestingModule({
+    auth.authenticate.mockReset().mockRejectedValue(new Error('bad token'));
+    const module = await Test.createTestingModule({
       providers: [
         FightClubGateway,
         { provide: FightClubService, useValue: { server: null } },
-        { provide: JwtService, useValue: jwtService },
+        { provide: WsAuthService, useValue: auth },
+        { provide: RealtimeService, useValue: { register: jest.fn() } },
       ],
     }).compile();
-
-    gateway = module.get<FightClubGateway>(FightClubGateway);
+    gateway = module.get(FightClubGateway);
   });
-
-  it('should be defined', () => {
-    expect(gateway).toBeDefined();
-  });
-
-  it('disconnects unauthorized clients', async () => {
+  it('disconnects clients rejected by shared authentication', async () => {
     const client = {
-      handshake: { auth: {}, headers: {} },
+      id: 's',
+      handshake: { auth: {} },
+      data: {},
       emit: jest.fn(),
       disconnect: jest.fn(),
     } as any;
-
     await gateway.handleConnection(client);
-
-    expect(client.emit).toHaveBeenCalledWith('fight:error', {
-      message: 'FUH U ARE UNAUTHORIZED GET OUT',
+    expect(client.emit).toHaveBeenCalledWith('exception', {
+      message: 'unauthorized',
     });
     expect(client.disconnect).toHaveBeenCalledWith(true);
   });

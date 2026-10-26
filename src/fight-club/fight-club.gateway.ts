@@ -1,4 +1,4 @@
-import {
+﻿import {
   WebSocketGateway,
   SubscribeMessage,
   MessageBody,
@@ -9,17 +9,20 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
+import { WsAuthService } from '../auth/ws-auth.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { UseFilters, UsePipes } from '@nestjs/common';
+import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
+import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
+import { wsAuthError } from '../auth/ws-auth-error';
+import { socketUserData } from '../auth/socket-user';
 import { FightClubService } from './fight-club.service';
-import type {
-  CreateFightPayload,
-  FightJwtPayload,
-  JoinFightPayload,
-} from './types/types';
+import type { CreateFightPayload, JoinFightPayload } from './types/types';
 
+@UseFilters(WsExceptionsFilter)
+@UsePipes(wsValidationPipe)
 @WebSocketGateway({
   namespace: '/fight-club',
-  cors: { origin: '*' },
 })
 export class FightClubGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
@@ -29,23 +32,25 @@ export class FightClubGateway
 
   constructor(
     private readonly fightClubService: FightClubService,
-    private readonly jwtService: JwtService,
+    private readonly auth: WsAuthService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   afterInit(server: Server) {
     this.fightClubService.server = server;
+    this.realtime.register('/fight-club', server);
   }
 
   async handleConnection(client: Socket) {
     try {
-      const payload = await this.jwtService.verifyAsync<FightJwtPayload>(
-        this.getToken(client),
-      );
-      client.data.userId = payload.sub;
-      client.data.username = payload.username;
+      const user = await this.auth.authenticate(client);
+      const data = socketUserData(client);
+      data.userId = user.userId;
+      data.username = user.username;
+      await client.join(`user:${user.userId}`);
       client.emit('fight:challenges', this.fightClubService.listChallenges());
-    } catch {
-      client.emit('fight:error', { message: 'FUH U ARE UNAUTHORIZED GET OUT' });
+    } catch (error) {
+      client.emit('exception', wsAuthError(error));
       client.disconnect(true);
     }
   }
@@ -55,7 +60,7 @@ export class FightClubGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { matchId: string; k: string },
   ) {
-    const userId = client.data.userId;
+    const { userId } = socketUserData(client);
 
     if (!userId || !payload?.matchId || !payload?.k) {
       client.emit('fight:error', {
@@ -77,7 +82,7 @@ export class FightClubGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: Omit<JoinFightPayload, 'userId'>,
   ) {
-    const userId = client.data.userId;
+    const { userId } = socketUserData(client);
 
     if (!userId || !payload?.matchId) {
       client.emit('fight:error', { message: 'Missing game data' });
@@ -99,7 +104,7 @@ export class FightClubGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: CreateFightPayload,
   ) {
-    const userId = client.data.userId;
+    const { userId, username } = socketUserData(client);
     if (!userId) {
       client.emit('fight:error', { message: 'Missing user data' });
       return;
@@ -107,7 +112,7 @@ export class FightClubGateway
 
     const challenge = this.fightClubService.createMatch(
       userId,
-      client.data.username,
+      username ?? '',
       payload,
     );
     if (!challenge) {
@@ -117,24 +122,18 @@ export class FightClubGateway
       return;
     }
 
-    this.server.emit('fight:challenges', this.fightClubService.listChallenges());
+    this.server.emit(
+      'fight:challenges',
+      this.fightClubService.listChallenges(),
+    );
     this.server.emit('fight:challenge_created', challenge);
     return challenge;
   }
 
   async handleDisconnect(client: Socket) {
-    const userId = client.data?.userId;
+    const { userId } = socketUserData(client);
     if (userId) {
       await this.fightClubService.handlePlayerDisconnect(userId, client.id);
     }
-  }
-
-  private getToken(client: Socket) {
-    const authToken = client.handshake.auth?.token;
-    const header = client.handshake.headers.authorization;
-    const token = authToken || header?.replace(/^Bearer\s+/i, '');
-
-    if (!token) throw new Error('Missing token');
-    return token;
   }
 }
