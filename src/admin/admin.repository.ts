@@ -364,6 +364,14 @@ export class AdminRepository {
         .innerJoin(scheme.rooms, eq(scheme.rooms.id, scheme.messages.roomId))
         .where(where),
     ]);
+    const attachmentRows = rows.length
+      ? await this.db.query.messageAttachments.findMany({
+          where: inArray(
+            scheme.messageAttachments.messageId,
+            rows.map(({ message }) => message.id),
+          ),
+        })
+      : [];
     const items = rows.map(({ message, author, room }) => ({
       ...message,
       author: {
@@ -374,6 +382,9 @@ export class AdminRepository {
         isMogged: author.isMogged,
       },
       room: { id: room.id, title: room.title },
+      attachments: attachmentRows.filter(
+        (attachment) => attachment.messageId === message.id,
+      ),
     }));
     return { items, total };
   }

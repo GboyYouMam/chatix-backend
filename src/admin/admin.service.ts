@@ -6,6 +6,7 @@ import { toAdminRoom, toAdminUser } from './admin.serializer';
 import { RealtimeService } from '../realtime/realtime.service';
 import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
 import { AdminAuditContext } from './audit-context';
+import { toAdminMessage } from '../messages/message.serializer';
 
 @Injectable()
 export class AdminService {
@@ -356,7 +357,11 @@ export class AdminService {
   }
 
   async getMessages(options: AdminPageOptions) {
-    return this.page(await this.adminRepository.findMessages(options), options);
+    const result = await this.adminRepository.findMessages(options);
+    return this.page(
+      { ...result, items: result.items.map(toAdminMessage) },
+      options,
+    );
   }
 
   async getUserIps(userId: string) {
@@ -364,8 +369,12 @@ export class AdminService {
   }
 
   async getUserMessages(userId: string, options: AdminPageOptions) {
+    const result = await this.adminRepository.findMessages({
+      ...options,
+      authorId: userId,
+    });
     return this.page(
-      await this.adminRepository.findMessages({ ...options, authorId: userId }),
+      { ...result, items: result.items.map(toAdminMessage) },
       options,
     );
   }

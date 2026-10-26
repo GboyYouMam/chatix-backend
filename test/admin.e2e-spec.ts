@@ -309,26 +309,39 @@ suite('admin detail endpoints (e2e)', () => {
       .insert(schema.rooms)
       .values({ creatorId: admin.userId, title: 'dossier room' })
       .returning({ id: schema.rooms.id });
-    await db.insert(schema.messages).values([
-      {
-        roomId: room.id,
-        authorId: target.userId,
-        cipherText: 'first dossier message',
-        ipAddress: '203.0.113.10',
-      },
-      {
-        roomId: room.id,
-        authorId: target.userId,
-        cipherText: 'second dossier message',
-        ipAddress: '203.0.113.10',
-      },
-      {
-        roomId: room.id,
-        authorId: target.userId,
-        cipherText: 'third dossier message',
-        ipAddress: '203.0.113.11',
-      },
-    ]);
+    const messagesSeeded = await db
+      .insert(schema.messages)
+      .values([
+        {
+          roomId: room.id,
+          authorId: target.userId,
+          cipherText: 'first dossier message',
+          ipAddress: '203.0.113.10',
+          createdAt: new Date(Date.now() - 10_000),
+        },
+        {
+          roomId: room.id,
+          authorId: target.userId,
+          cipherText: 'second dossier message',
+          ipAddress: '203.0.113.10',
+          createdAt: new Date(Date.now() - 5_000),
+        },
+        {
+          roomId: room.id,
+          authorId: target.userId,
+          cipherText: 'third dossier message',
+          ipAddress: '203.0.113.11',
+          createdAt: new Date(),
+        },
+      ])
+      .returning({ id: schema.messages.id });
+    await db.insert(schema.messageAttachments).values({
+      messageId: messagesSeeded[2].id,
+      url: 'https://files.example.test/dossier.png',
+      fileName: 'dossier.png',
+      mimeType: 'image/png',
+      size: 100,
+    });
     const headers = { Authorization: `Bearer ${admin.token}` };
     const ips = await request(app.getHttpServer())
       .get(`/admin/users/${target.userId}/ips`)
@@ -355,6 +368,9 @@ suite('admin detail endpoints (e2e)', () => {
       room: { id: room.id, title: 'dossier room' },
     });
     expect(typeof dossierItems[0].ipAddress).toBe('string');
+    expect(dossierItems[0].attachments).toMatchObject([
+      { fileName: 'dossier.png' },
+    ]);
     await request(app.getHttpServer())
       .get(`/admin/users/${target.userId}/ips`)
       .set('Authorization', `Bearer ${target.token}`)

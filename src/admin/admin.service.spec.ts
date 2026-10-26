@@ -17,6 +17,7 @@ describe('AdminService', () => {
   const usersRepository = { vaporizeUser: jest.fn() };
   const adminRepository = {
     countActiveWarnings: jest.fn().mockResolvedValue(new Map()),
+    findUser: jest.fn().mockResolvedValue({ username: 'gone', role: 'user' }),
   };
 
   beforeEach(async () => {
@@ -55,7 +56,6 @@ describe('AdminService', () => {
       autoBannedAt: null,
       yapCooldown: null,
       created_at: new Date(),
-      password: 'secret',
       tokenVersion: 0,
     });
     await service.vaporizeUser('user-id');
