@@ -71,6 +71,9 @@ export class FightClubGateway
       this.server.to(payload.matchId).emit('fight:update', result.update);
       this.server.to(payload.matchId).emit('fight:game_over', {
         winnerId: result.winnerId,
+        loserId: result.loserId,
+        stakeType: result.stakeType,
+        stakeAmount: result.stakeAmount,
       });
     } else if (result.kind === 'hit') {
       this.server.to(payload.matchId).emit('fight:update', result.update);

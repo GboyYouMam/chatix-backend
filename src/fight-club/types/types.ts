@@ -61,7 +61,15 @@ export type HitResult =
     }
   | { kind: 'miss'; stunMs: number }
   | { kind: 'hit'; update: FightUpdate }
-  | { kind: 'ko'; update: FightUpdate; winnerId: string };
+  | {
+      kind: 'ko';
+      update: FightUpdate;
+      winnerId: string;
+      loserId: string;
+      stakeType: StakeVaries;
+      stakeAmount: number;
+    }
+  | { kind: 'settlement_failed' };
 export const FightStatus = {
   FIGHTING: 'fighting',
   FIGHT_OVER: 'fight_over',

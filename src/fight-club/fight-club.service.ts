@@ -190,8 +190,17 @@ export class FightClubService {
 
     if (enemy.hp === 0) {
       match.status = 'FIGHT_OVER';
-      await this.finishMatch(match, player.id, enemy.id);
-      return { kind: 'ko', update, winnerId: player.id };
+      if (!(await this.finishMatch(match, player.id, enemy.id))) {
+        return { kind: 'settlement_failed' };
+      }
+      return {
+        kind: 'ko',
+        update,
+        winnerId: player.id,
+        loserId: enemy.id,
+        stakeType: match.stakeType,
+        stakeAmount: match.stakeAmount,
+      };
     }
     return { kind: 'hit', update };
   }
@@ -201,10 +210,10 @@ export class FightClubService {
     winnerId: string,
     loserId: string,
     emitGameOver = false,
-  ) {
+  ): Promise<boolean> {
     const { stakeType, stakeAmount, matchId } = match;
     try {
-      await this.fightClubRepository.summariseFight(
+      await this.fightClubRepository.settle(
         winnerId,
         loserId,
         stakeType,
@@ -227,8 +236,15 @@ export class FightClubService {
           stakeAmount,
         });
       }
-    } catch (error) {
-      this.logger.error(error);
+      return true;
+    } catch {
+      this.logger.error(
+        JSON.stringify({ event: 'fight.result_failed', matchId }),
+      );
+      this.server.to(matchId).emit('fight:error', {
+        message: 'the soap market crashed. result not saved, try again.',
+      });
+      return false;
     } finally {
       this.activeMatches.delete(matchId);
       this.clearCadence(match);

@@ -8,7 +8,7 @@ import type { MatchState } from './types/types';
 
 describe('FightClubService', () => {
   let service: FightClubService;
-  let repo: { summariseFight: jest.Mock };
+  let repo: { settle: jest.Mock };
   let roomEmit: jest.Mock;
   let serverEmit: jest.Mock;
   let fetchSockets: jest.Mock;
@@ -54,7 +54,7 @@ describe('FightClubService', () => {
   };
 
   beforeEach(async () => {
-    repo = { summariseFight: jest.fn() };
+    repo = { settle: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FightClubService,
@@ -97,7 +97,7 @@ describe('FightClubService', () => {
       expect(result.kind).toBe(index < 2 ? 'hit' : 'ko');
     }
 
-    expect(repo.summariseFight).toHaveBeenCalledWith('p1', 'p2', 'aura', 7);
+    expect(repo.settle).toHaveBeenCalledWith('p1', 'p2', 'aura', 7);
     expect(matches.has(matchId)).toBe(false);
   });
 
@@ -285,6 +285,32 @@ describe('FightClubService', () => {
     expect(roomEmit).toHaveBeenCalledWith(
       'fight:rage_quit',
       expect.objectContaining({ leaverId: challenger.userId }),
+    );
+  });
+
+  it('reports settlement failure to the match and removes the match', async () => {
+    const { matchId, creatorSocket } = makeFight();
+    const match = matches.get(matchId);
+    if (!match) throw new Error('expected match');
+    match.player2.hp = 1;
+    repo.settle.mockRejectedValue(new Error('database unavailable'));
+    const prompt = match.prompt;
+
+    const result = await service.handleHit(
+      creator.userId,
+      creatorSocket.id,
+      { matchId, promptId: prompt.promptId, k: prompt.key },
+      prompt.sentAt + 120,
+    );
+
+    expect(result).toEqual({ kind: 'settlement_failed' });
+    expect(roomEmit).toHaveBeenCalledWith('fight:error', {
+      message: 'the soap market crashed. result not saved, try again.',
+    });
+    expect(matches.has(matchId)).toBe(false);
+    expect(roomEmit).not.toHaveBeenCalledWith(
+      'fight:game_over',
+      expect.anything(),
     );
   });
 });
