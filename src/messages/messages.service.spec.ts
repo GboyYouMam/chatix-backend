@@ -6,6 +6,7 @@ import { RequestUser } from '../auth/dto/request-user.dto';
 import { RoomService } from '../rooms/room/room.service';
 import { ConfigService } from '@nestjs/config';
 import { AchievementsService } from '../achievements/achievements.service';
+import { CosmeticsService } from '../shop/cosmetics.service';
 
 describe('MessagesService', () => {
   it('rejects more than five attachments', async () => {
@@ -16,6 +17,7 @@ describe('MessagesService', () => {
       {} as RoomService,
       {} as ConfigService,
       {} as AchievementsService,
+      {} as CosmeticsService,
     );
 
     await expect(
@@ -47,6 +49,7 @@ describe('MessagesService', () => {
       {} as RoomService,
       {} as ConfigService,
       {} as AchievementsService,
+      {} as CosmeticsService,
     );
 
     await service.deleteMessage('m1', {

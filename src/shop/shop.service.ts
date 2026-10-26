@@ -18,7 +18,13 @@ import {
   SHOP_ITEMS,
   type ShopItem,
 } from './catalog';
-import { equippedFromRows } from './equipment';
+import {
+  equippedFromRows,
+  EquippedState,
+  EquipSlot,
+  FREE_ITEM_KEYS,
+  slotAccepts,
+} from './equipment';
 
 export interface InventoryEntry {
   itemKey: string;
@@ -49,21 +55,74 @@ export class ShopService {
       .from(schema.users)
       .where(eq(schema.users.id, userId));
     if (!user) throw new NotFoundException('no such chud. try logging in.');
-    const [inventory, equippedRows] = await Promise.all([
+    const [inventory, equipped] = await Promise.all([
       this.listInventory(this.db, userId),
-      this.db
-        .select({
-          slot: schema.userEquipped.slot,
-          itemKey: schema.userEquipped.itemKey,
-        })
-        .from(schema.userEquipped)
-        .where(eq(schema.userEquipped.userId, userId)),
+      this.getEquipped(this.db, userId),
     ]);
-    return {
-      aura: user.aura,
-      inventory,
-      equipped: equippedFromRows(equippedRows),
-    };
+    return { aura: user.aura, inventory, equipped };
+  }
+
+  // itemKey null unequips the slot. Free defaults (accent_hot_pink) need no ownership.
+  async equip(
+    userId: string,
+    slot: EquipSlot,
+    itemKey: string | null,
+  ): Promise<{ equipped: EquippedState }> {
+    return this.db.transaction(async (tx) => {
+      if (itemKey === null) {
+        await tx
+          .delete(schema.userEquipped)
+          .where(
+            and(
+              eq(schema.userEquipped.userId, userId),
+              eq(schema.userEquipped.slot, slot),
+            ),
+          );
+      } else {
+        if (!slotAccepts(slot, itemKey)) {
+          throw new BadRequestException({
+            code: 'WRONG_SLOT',
+            message: 'that does not go there, chud.',
+          });
+        }
+        if (!FREE_ITEM_KEYS.has(itemKey)) {
+          if (!findShopItem(itemKey)) {
+            throw new BadRequestException({
+              code: 'UNKNOWN_ITEM',
+              message: 'no such item. nice try.',
+            });
+          }
+          if (!(await this.owns(tx, userId, itemKey))) {
+            throw new ForbiddenException({
+              code: 'NOT_OWNED',
+              message: 'u dont own that. nice try.',
+            });
+          }
+        }
+        await tx
+          .insert(schema.userEquipped)
+          .values({ userId, slot, itemKey })
+          .onConflictDoUpdate({
+            target: [schema.userEquipped.userId, schema.userEquipped.slot],
+            set: { itemKey },
+          });
+      }
+      return { equipped: await this.getEquipped(tx, userId) };
+    });
+  }
+
+  private async getEquipped(
+    tx: DbOrTx | Db,
+    userId: string,
+  ): Promise<EquippedState> {
+    const rows = await tx
+      .select({
+        slot: schema.userEquipped.slot,
+        itemKey: schema.userEquipped.itemKey,
+      })
+      .from(schema.userEquipped)
+      .where(eq(schema.userEquipped.userId, userId));
+    return equippedFromRows(rows);
   }
 
   async purchase(userId: string, itemKey: string): Promise<PurchaseResult> {

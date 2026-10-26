@@ -39,13 +39,16 @@ export class MessagesRepository {
       .where(eq(scheme.messages.roomId, roomId))
       .orderBy(desc(scheme.messages.createdAt))
       .limit(1);
-    if (message) return Date.now() - message.createdAt.getTime() >= milliseconds;
+    if (message)
+      return Date.now() - message.createdAt.getTime() >= milliseconds;
     const [room] = await this.db
       .select({ createdAt: scheme.rooms.createdAt })
       .from(scheme.rooms)
       .where(eq(scheme.rooms.id, roomId))
       .limit(1);
-    return Boolean(room && Date.now() - room.createdAt.getTime() >= milliseconds);
+    return Boolean(
+      room && Date.now() - room.createdAt.getTime() >= milliseconds,
+    );
   }
 
   async incrementMessageCount(userId: string) {

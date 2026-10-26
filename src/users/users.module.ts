@@ -4,9 +4,10 @@ import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { StorageModule } from '../storage/storage.module';
 import { AchievementsModule } from '../achievements/achievements.module';
+import { ShopModule } from '../shop/shop.module';
 
 @Module({
-  imports: [StorageModule, AchievementsModule],
+  imports: [StorageModule, AchievementsModule, ShopModule],
   controllers: [UsersController],
   exports: [UsersService, UsersRepository],
   providers: [UsersService, UsersRepository],

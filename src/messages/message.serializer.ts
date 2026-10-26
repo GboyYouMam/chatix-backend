@@ -1,3 +1,5 @@
+import type { AuthorCosmetics } from '../shop/cosmetics.service';
+
 type MessageRow = {
   id: string;
   roomId: string;
@@ -24,7 +26,17 @@ type MessageRow = {
   room?: { id: string; title: string } | null;
 };
 
-export function toPublicMessage(row: MessageRow, ipTag: string | null) {
+const NO_AUTHOR_COSMETICS: AuthorCosmetics = {
+  nameColor: null,
+  nameIcon: null,
+  quoteStyle: null,
+};
+
+export function toPublicMessage(
+  row: MessageRow,
+  ipTag: string | null,
+  authorCosmetics: AuthorCosmetics = NO_AUTHOR_COSMETICS,
+) {
   return {
     id: row.id,
     roomId: row.roomId,
@@ -40,6 +52,11 @@ export function toPublicMessage(row: MessageRow, ipTag: string | null) {
           forcedTitle: row.author.forcedTitle,
           isMogged: row.author.isMogged ?? false,
           featuredAchievements: row.author.featuredAchievements ?? [],
+          cosmetics: {
+            nameColor: authorCosmetics.nameColor,
+            nameIcon: authorCosmetics.nameIcon,
+            quoteStyle: authorCosmetics.quoteStyle,
+          },
         }
       : null,
     attachments: row.attachments ?? [],

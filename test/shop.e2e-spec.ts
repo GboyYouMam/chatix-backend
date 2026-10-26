@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { createTestApp, registerAndLogin } from './utils/test-app';
 import type { Db } from '../src/database/database.types';
 import * as schema from '../src/database/scheme';
+import { CosmeticsService } from '../src/shop/cosmetics.service';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
 suite('shop (e2e)', () => {
@@ -141,5 +142,107 @@ suite('shop (e2e)', () => {
       key: 'found_the_basement',
     });
     await purchase(token, 'theme_fight_club').expect(201);
+  });
+
+  const equip = (token: string, slot: string, itemKey: string | null) =>
+    request(app.getHttpServer())
+      .patch('/shop/equip')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ slot, itemKey });
+
+  it('refuses to equip an unowned item and a wrong-category item', async () => {
+    const { token, userId } = await registerAndLogin(
+      app,
+      'equip_checker',
+      'StrongPass1!',
+    );
+    await setAura(userId, 1000);
+
+    const unowned = await equip(token, 'accent', 'accent_magenta').expect(403);
+    expect(unowned.body).toMatchObject({ code: 'NOT_OWNED' });
+
+    const wrongSlot = await equip(token, 'accent', 'bg_grid').expect(400);
+    expect(wrongSlot.body).toMatchObject({ code: 'WRONG_SLOT' });
+  });
+
+  it('shows the equipped accent HEX on the profile and clears it on null', async () => {
+    const { token, userId } = await registerAndLogin(
+      app,
+      'accent_wearer',
+      'StrongPass1!',
+    );
+    await setAura(userId, 1000);
+    await purchase(token, 'accent_magenta').expect(201);
+    await equip(token, 'accent', 'accent_magenta').expect(200);
+
+    const profile = await request(app.getHttpServer())
+      .get('/users/profile/accent_wearer')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const profileBody = profile.body as { cosmetics: { accent: string } };
+    expect(profileBody.cosmetics).toMatchObject({
+      accent: '#e11d74',
+      title: null,
+    });
+
+    await equip(token, 'accent', null).expect(200);
+    const cleared = await request(app.getHttpServer())
+      .get('/users/profile/accent_wearer')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (cleared.body as { cosmetics: { accent: string } }).cosmetics.accent,
+    ).toBe('#fa4d98');
+  });
+
+  it('resolves author cosmetics on a message page with one cosmetics lookup', async () => {
+    const owner = await registerAndLogin(app, 'glazer', 'StrongPass1!');
+    const author = await registerAndLogin(app, 'namecolor_guy', 'StrongPass1!');
+    await setAura(author.userId, 1000);
+    await purchase(author.token, 'namecolor_rose').expect(201);
+    await equip(author.token, 'nameColor', 'namecolor_rose').expect(200);
+
+    const created = await request(app.getHttpServer())
+      .post('/rooms')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ title: 'cosmetics room', publicity: 'public' })
+      .expect(201);
+    const roomId = (created.body as { id: string }).id;
+    await db
+      .update(schema.rooms)
+      .set({ status: 'active' })
+      .where(eq(schema.rooms.id, roomId));
+    await db.insert(schema.messages).values([
+      { roomId, authorId: author.userId, cipherText: 'a' },
+      { roomId, authorId: owner.userId, cipherText: 'b' },
+      { roomId, authorId: author.userId, cipherText: 'c' },
+    ]);
+
+    const cosmetics = app.get(CosmeticsService);
+    const spy = jest.spyOn(cosmetics, 'forUsers');
+    const page = await request(app.getHttpServer())
+      .get(`/messages/${roomId}?limit=50`)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .expect(200);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+    const items = (
+      page.body as {
+        items: { author: { id: string; cosmetics: unknown } }[];
+      }
+    ).items;
+    const byAuthor = (id: string) =>
+      items.find((item) => item.author.id === id)?.author.cosmetics;
+    expect(byAuthor(author.userId)).toEqual({
+      nameColor: '#fb7185',
+      nameIcon: null,
+      quoteStyle: null,
+    });
+    expect(byAuthor(owner.userId)).toEqual({
+      nameColor: null,
+      nameIcon: null,
+      quoteStyle: null,
+    });
   });
 });

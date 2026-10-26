@@ -10,6 +10,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileFilesDTO } from './dto/profile-files.dto';
 import { assertAllowed, PROFILE_IMAGE_POLICY } from '../storage/file-policy';
 import { AchievementsService } from '../achievements/achievements.service';
+import {
+  CosmeticsService,
+  DEFAULT_PUBLIC_COSMETICS,
+} from '../shop/cosmetics.service';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +21,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly storageService: StorageService,
     private readonly achievements: AchievementsService,
+    private readonly cosmetics: CosmeticsService,
   ) {}
 
   async getUserProfile(userId: string, timezone?: string) {
@@ -161,6 +166,14 @@ export class UsersService {
         this.usersRepository.findAchievements(user.id),
       ]);
 
+    const fightTitle =
+      user.fightTitleUntil && user.fightTitleUntil > new Date()
+        ? user.fightTitle
+        : null;
+    const cosmetics =
+      (await this.cosmetics.forUsers([user.id])).get(user.id) ??
+      DEFAULT_PUBLIC_COSMETICS;
+
     return {
       ...user,
       achievements: achievements.map(({ key, unlockedAt }) => ({
@@ -168,16 +181,18 @@ export class UsersService {
         unlockedAt,
       })),
       featuredAchievements: user.featuredAchievements,
-      fightTitle:
-        user.fightTitleUntil && user.fightTitleUntil > new Date()
-          ? user.fightTitle
-          : null,
+      fightTitle,
       activeWarnings: activeWarnings.map(({ reason, createdAt }) => ({
         reason,
         createdAt: createdAt.toISOString(),
       })),
       comments,
       hasRespected,
+      // Title precedence: admin forcedTitle > active fight title > shop title.
+      cosmetics: {
+        ...cosmetics,
+        title: user.forcedTitle || fightTitle ? null : cosmetics.title,
+      },
     };
   }
 
