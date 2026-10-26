@@ -31,6 +31,21 @@
 $ npm install
 ```
 
+## Local development
+
+Copy `.env.example` to `.env` and adjust its values if needed. The repository
+already includes a local `.env` configured for the Compose services.
+
+With Docker Desktop running, start Postgres and MinIO, then apply migrations:
+
+```bash
+$ docker compose up -d
+$ npm run db:migrate
+```
+
+Start the API with `npm run start:dev`. The frontend uses its own `.env` with
+`VITE_API_URL=http://localhost:3000` and runs with `npm run dev`.
+
 ## Compile and run the project
 
 ```bash

@@ -64,6 +64,20 @@
       "when": 1784848603523,
       "tag": "0008_foamy_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789827134000,
+      "tag": "0009_add_profile_banners",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789827350000,
+      "tag": "0010_set_room_state_default",
+      "breakpoints": true
     }
   ]
 }
