@@ -8,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { UseFilters, UsePipes } from '@nestjs/common';
+import { Logger, UseFilters, UsePipes } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -27,6 +27,8 @@ import { FightJoinDto } from './dto/fight-join.dto';
 export class FightClubGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
+  private readonly logger = new Logger(FightClubGateway.name);
+
   @WebSocketServer()
   server: Server;
 
@@ -65,7 +67,17 @@ export class FightClubGateway
       payload,
       Date.now(),
     );
-    if (result.kind === 'miss') {
+    if (result.kind === 'rejected') {
+      this.logger.debug(
+        JSON.stringify({
+          event: 'fight.hit.rejected',
+          matchId: payload.matchId,
+          userId: user.userId,
+          socketId: client.id,
+          reason: result.reason,
+        }),
+      );
+    } else if (result.kind === 'miss') {
       client.emit('fight:stun', { stunDuration: result.stunMs });
     } else if (result.kind === 'ko') {
       this.server.to(payload.matchId).emit('fight:update', result.update);
