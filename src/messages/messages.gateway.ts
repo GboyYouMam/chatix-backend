@@ -24,6 +24,8 @@ import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
 import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
 import { socketUserData } from '../auth/socket-user';
 import { JoinRoomDto } from './dto/join-room.dto';
+import { getSocketClientIp } from '../common/net/client-ip';
+import { ConfigService } from '@nestjs/config';
 
 @UseFilters(WsExceptionsFilter)
 @UsePipes(wsValidationPipe)
@@ -37,6 +39,7 @@ export class MessagesGateway
     private readonly messagesService: MessagesService,
     private readonly auth: WsAuthService,
     private readonly realtime: RealtimeService,
+    private readonly config: ConfigService,
   ) {}
   afterInit(server: Server) {
     this.server = server;
@@ -54,6 +57,10 @@ export class MessagesGateway
       event: 'ws.connect',
       userId: user.userId,
       socketId: client.id,
+      clientIp: getSocketClientIp(client, {
+        trustProxy: this.config.get<string>('TRUST_PROXY'),
+        trustedIpHeader: this.config.get<string>('TRUSTED_IP_HEADER'),
+      }),
       namespace: '/',
     });
   }
