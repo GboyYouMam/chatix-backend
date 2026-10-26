@@ -2,7 +2,7 @@ CREATE TYPE "public"."fight_outcome" AS ENUM('ko', 'rage_quit', 'cancelled');-->
 CREATE TABLE "fights" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"player1_id" uuid NOT NULL,
-	"player2_id" uuid NOT NULL,
+	"player2_id" uuid,
 	"winner_id" uuid,
 	"stake_type" varchar(20) NOT NULL,
 	"stake_amount" integer NOT NULL,
@@ -25,9 +25,10 @@ ALTER TABLE "users" ADD COLUMN "fights_won" integer DEFAULT 0 NOT NULL;--> state
 ALTER TABLE "users" ADD COLUMN "fights_lost" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "win_streak" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "loss_streak" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "last_seen_at" timestamp;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "last_seen_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "fight_title" varchar(50);--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "fight_title_until" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "debt_paid_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "fights" ADD CONSTRAINT "fights_player1_id_users_id_fk" FOREIGN KEY ("player1_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fights" ADD CONSTRAINT "fights_player2_id_users_id_fk" FOREIGN KEY ("player2_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fights" ADD CONSTRAINT "fights_winner_id_users_id_fk" FOREIGN KEY ("winner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint

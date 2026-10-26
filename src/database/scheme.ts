@@ -40,6 +40,7 @@ export const users = pgTable('users', {
   isClown: boolean('is_clown').default(false).notNull(),
   adminGlazeMode: boolean('admin_glaze_mode').default(false).notNull(),
   debt: integer('debt').default(0).notNull(),
+  debtPaidCount: integer('debt_paid_count').default(0).notNull(),
   //-------------------------------------------------------------------------------------------------
   created_at: timestamp().defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
@@ -61,7 +62,7 @@ export const users = pgTable('users', {
   fightsLost: integer('fights_lost').default(0).notNull(),
   winStreak: integer('win_streak').default(0).notNull(),
   lossStreak: integer('loss_streak').default(0).notNull(),
-  lastSeenAt: timestamp('last_seen_at'),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   fightTitle: varchar('fight_title', { length: 50 }),
   fightTitleUntil: timestamp('fight_title_until', { withTimezone: true }),
 });
@@ -79,9 +80,9 @@ export const fights = pgTable(
     player1Id: uuid('player1_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    player2Id: uuid('player2_id')
-      .references(() => users.id, { onDelete: 'cascade' })
-      .notNull(),
+    player2Id: uuid('player2_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
     winnerId: uuid('winner_id').references(() => users.id, {
       onDelete: 'set null',
     }),
