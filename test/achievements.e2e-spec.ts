@@ -1,12 +1,12 @@
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
-import { createTestApp, registerAndLogin } from './utils/test-app';
+import { createTestApp, makeAdmin, registerAndLogin } from './utils/test-app';
 import { AchievementsService } from '../src/achievements/achievements.service';
 import { userAchievements } from '../src/database/scheme';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../src/database/database.types';
 import { FightClubRepository } from '../src/fight-club/fight-club.repository';
-import { fights, users } from '../src/database/scheme';
+import { fights, rooms, users } from '../src/database/scheme';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
 suite('achievements (e2e)', () => {
@@ -191,5 +191,47 @@ suite('achievements (e2e)', () => {
     expect(profile.achievements).toEqual([
       expect.objectContaining({ key: 'first_farm' }),
     ]);
+  });
+
+  it('grants landlord, ratio_d and admins_favourite from admin actions', async () => {
+    const creator = await registerAndLogin(
+      app,
+      'room_landlord',
+      'StrongPass1!',
+    );
+    const admin = await registerAndLogin(app, 'medal_admin', 'StrongPass1!');
+    await makeAdmin(db, admin.userId);
+    const [room] = await db
+      .insert(rooms)
+      .values({ creatorId: creator.userId, title: 'medal room' })
+      .returning({ id: rooms.id });
+    const headers = { Authorization: `Bearer ${admin.token}` };
+    const hasMedal = async (key: string) =>
+      Boolean(
+        await db.query.userAchievements.findFirst({
+          where: (table, { and, eq }) =>
+            and(eq(table.userId, creator.userId), eq(table.key, key)),
+        }),
+      );
+
+    await request(app.getHttpServer())
+      .patch(`/admin/rooms/${room.id}/approve`)
+      .set(headers)
+      .expect(200);
+    expect(await hasMedal('landlord')).toBe(true);
+
+    await request(app.getHttpServer())
+      .patch(`/admin/rooms/${room.id}/quarantine`)
+      .set(headers)
+      .send({ reason: 'too cooked' })
+      .expect(200);
+    expect(await hasMedal('ratio_d')).toBe(true);
+
+    await request(app.getHttpServer())
+      .patch(`/admin/users/${creator.userId}/modifiers`)
+      .set(headers)
+      .send({ adminGlazeMode: true })
+      .expect(200);
+    expect(await hasMedal('admins_favourite')).toBe(true);
   });
 });

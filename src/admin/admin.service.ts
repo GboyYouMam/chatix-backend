@@ -101,6 +101,7 @@ export class AdminService {
       },
       { status: room.status, statusReason: room.statusReason },
     );
+    await this.achievements.grantSafely(room.creatorId, 'landlord');
     return this.notifyRoomStatus(room);
   }
 
