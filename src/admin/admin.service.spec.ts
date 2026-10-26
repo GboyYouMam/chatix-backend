@@ -32,10 +32,6 @@ describe('AdminService', () => {
     service = module.get<AdminService>(AdminService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
   it('emits the ban before disconnecting sockets during vaporize', async () => {
     usersRepository.vaporizeUser.mockResolvedValue({
       id: 'user-id',
