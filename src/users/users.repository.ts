@@ -6,6 +6,7 @@ import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DbOrTx } from '../database/database.types';
 
 export interface UpdateUserData {
+  aura?: number;
   username?: string;
   description?: string;
   vibe?: string;

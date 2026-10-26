@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
-import { RequestUser } from '../auth/dto/request-user.dto';
 import { StorageService } from '../storage/storage.service';
 
 @Injectable()
@@ -105,7 +104,7 @@ export class MessagesService {
     return this.messagesRepository.getRoomHistory(roomId);
   }
 
-  async deleteMessage(messageId: string, user: RequestUser) {
+  async deleteMessage(messageId: string) {
     const deletedMessage =
       await this.messagesRepository.deleteMessage(messageId);
 

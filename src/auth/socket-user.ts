@@ -7,6 +7,8 @@ export interface SocketUserData {
   username?: string;
 }
 
-export function socketUserData(socket: Socket): SocketUserData {
-  return socket.data as unknown as SocketUserData;
+export function socketUserData(
+  socket: Socket & { data: SocketUserData },
+): SocketUserData {
+  return socket.data as SocketUserData;
 }

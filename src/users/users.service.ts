@@ -81,10 +81,6 @@ export class UsersService {
       updatePayload,
     );
 
-    if ('password' in updatedUser) {
-      delete (updatedUser as any).password;
-    }
-
     return updatedUser;
   }
 
@@ -183,9 +179,7 @@ export class UsersService {
 
     const newAura = Number(user.aura) + 1;
 
-    const updatedUser = await this.usersRepository.updateProfile(userId, {
-      aura: newAura,
-    } as any);
+    await this.usersRepository.updateProfile(userId, { aura: newAura });
 
     return {
       aura: newAura,

@@ -57,10 +57,7 @@ export class MessagesController {
 
   @UseGuards(AdminGuard)
   @Delete(':id')
-  async deleteMessage(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.messagesService.deleteMessage(id, user);
+  async deleteMessage(@Param('id') id: string) {
+    return this.messagesService.deleteMessage(id);
   }
 }
