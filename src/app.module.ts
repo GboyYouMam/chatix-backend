@@ -18,6 +18,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { GlobalThrottlerGuard } from './common/guards/user-throttler.guard';
 import { AchievementsModule } from './achievements/achievements.module';
 import { ShopModule } from './shop/shop.module';
+import { EconomyModule } from './economy/economy.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ShopModule } from './shop/shop.module';
     MessagesModule,
     FightClubModule,
     ShopModule,
+    EconomyModule,
   ],
   controllers: [AppController],
   providers: [

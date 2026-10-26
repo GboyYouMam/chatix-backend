@@ -68,6 +68,8 @@ export const users = pgTable('users', {
   fightInsuranceArmed: boolean('fight_insurance_armed')
     .default(false)
     .notNull(),
+  stimulusStreak: integer('stimulus_streak').default(0).notNull(),
+  lastStimulusAt: timestamp('last_stimulus_at', { withTimezone: true }),
 });
 
 export const FightOutcome = pgEnum('fight_outcome', [

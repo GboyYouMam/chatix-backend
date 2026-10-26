@@ -120,6 +120,13 @@
       "when": 1793056838648,
       "tag": "0016_economy_perks",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793057906300,
+      "tag": "0017_stimulus",
+      "breakpoints": true
     }
   ]
 }
