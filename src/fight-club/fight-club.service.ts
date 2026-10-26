@@ -247,7 +247,7 @@ export class FightClubService implements OnModuleDestroy {
     } catch (error: unknown) {
       this.logger.error({ event: 'fight.result_failed', matchId, err: error });
       this.server.to(matchId).emit('fight:error', {
-        message: 'the soap market crashed. result not saved, try again.',
+        message: 'the soap cartel crashed. result not saved, try again.',
       });
       return false;
     } finally {

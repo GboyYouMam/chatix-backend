@@ -156,8 +156,8 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   ],
   [
     'the_soap_market',
-    'the soap market',
-    'finish 3 fights in an hour. the soap market is open.',
+    'the soap cartel',
+    'finish 3 fights in an hour. the soap cartel salutes you.',
     'fight',
     'silver',
     '🧼',
