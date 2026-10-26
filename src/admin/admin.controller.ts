@@ -31,6 +31,26 @@ import { RejectRoomDTO } from './dto/reject-room.dto';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Get('stats')
+  getStats() {
+    return this.adminService.getStats();
+  }
+
+  @Patch('rooms/:id/approve')
+  @AuditAction('room.approve', 'room')
+  approveRoom(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.approveRoom(id);
+  }
+
+  @Patch('rooms/:id/reject')
+  @AuditAction('room.reject', 'room')
+  rejectRoom(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RejectRoomDTO,
+  ) {
+    return this.adminService.rejectRoom(id, body.reason);
+  }
+
   @Patch('rooms/:id/quarantine')
   @AuditAction('room.quarantine', 'room')
   quarantineRoom(
