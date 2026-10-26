@@ -10,6 +10,7 @@ import { AdminGateway } from './admin.gateway';
 import { AdminActivityLogger } from './admin-activity-logger.service';
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import { AuthModule } from '../auth/auth.module';
+import { AdminAuditContext } from './audit-context';
 
 @Global()
 @Module({
@@ -21,7 +22,8 @@ import { AuthModule } from '../auth/auth.module';
     AdminGateway,
     AdminActivityLogger,
     AdminAuditInterceptor,
+    AdminAuditContext,
   ],
-  exports: [AdminAuditInterceptor, AdminActivityLogger],
+  exports: [AdminAuditInterceptor, AdminActivityLogger, AdminAuditContext],
 })
 export class AdminModule {}
