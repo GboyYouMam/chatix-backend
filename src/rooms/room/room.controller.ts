@@ -17,6 +17,8 @@ import { CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
 import { UpdateRoomDTO } from './dto/update-room.dto';
 import { Throttle } from '@nestjs/throttler';
+import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
+import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 
 @Controller('rooms')
 export class RoomsController {
@@ -65,19 +67,19 @@ export class RoomsController {
   @Patch(':id/status')
   async updateRoomStatus(
     @Param('id') id: string,
-    @Body('status') status: 'active' | 'checkout' | 'banned' | 'quarantined',
+    @Body() body: UpdateRoomStatusDto,
   ) {
-    return this.roomsService.updateRoomStatus(id, status);
+    return this.roomsService.updateRoomStatus(id, body.status);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/publicity')
   async updateRoomPublicity(
     @Param('id') id: string,
-    @Body('publicity') publicity: 'public' | 'private',
+    @Body() body: UpdateRoomPublicityDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.roomsService.updateRoomPublicity(id, user.userId, publicity);
+    return this.roomsService.updateRoomPublicity(id, user.userId, body);
   }
 
   @UseGuards(JwtAuthGuard)
