@@ -14,12 +14,15 @@ describe('AdminService', () => {
     disconnectUser: jest.fn(),
   };
   const usersRepository = { vaporizeUser: jest.fn() };
+  const adminRepository = {
+    countActiveWarnings: jest.fn().mockResolvedValue(new Map()),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
-        { provide: AdminRepository, useValue: {} },
+        { provide: AdminRepository, useValue: adminRepository },
         { provide: UsersRepository, useValue: usersRepository },
         { provide: MessagesRepository, useValue: {} },
         { provide: RealtimeService, useValue: realtime },
@@ -34,7 +37,29 @@ describe('AdminService', () => {
   });
 
   it('emits the ban before disconnecting sockets during vaporize', async () => {
-    usersRepository.vaporizeUser.mockResolvedValue({ id: 'user-id' });
+    usersRepository.vaporizeUser.mockResolvedValue({
+      id: 'user-id',
+      username: 'gone',
+      role: 'user',
+      pfp_url: null,
+      description: null,
+      vibe: null,
+      aura: 0,
+      debt: 0,
+      respectCount: 0,
+      isClown: true,
+      isMogged: false,
+      adminGlazeMode: false,
+      canChangeProfile: true,
+      forcedTitle: null,
+      bannedUntil: null,
+      banReason: null,
+      autoBannedAt: null,
+      yapCooldown: null,
+      created_at: new Date(),
+      password: 'secret',
+      tokenVersion: 0,
+    });
     await service.vaporizeUser('user-id');
     expect(realtime.emitToUser).toHaveBeenCalledWith('user-id', 'user:banned', {
       bannedUntil: null,
