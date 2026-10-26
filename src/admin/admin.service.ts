@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { UsersRepository } from '../auth/users.repository';
+﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { UsersRepository } from '../users/users.repository';
 import * as scheme from '../database/scheme';
 import { MessagesRepository } from '../messages/messages.repository';
 import { AdminPageOptions, AdminRepository } from './admin.repository';

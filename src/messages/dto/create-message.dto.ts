@@ -1,17 +1,11 @@
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateMessageDTO {
-    @IsString()
-    @IsNotEmpty()
-    roomId: string;
+  @IsString()
+  @IsNotEmpty()
+  roomId: string;
 
-    @IsString()
-    @IsOptional()
-    cipherText: string;
-}
-
-export class RequestUser {
-    userId: string;
-    username: string;
-    role: string;
+  @IsString()
+  @IsOptional()
+  cipherText: string;
 }

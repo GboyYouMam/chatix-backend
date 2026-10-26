@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   Inject,
   ForbiddenException,
@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { RequestUser } from './dto/create-message.dto';
+import { RequestUser } from '../auth/dto/request-user.dto';
 
 type MessageAttachment = {
   url: string;

@@ -1,5 +1,5 @@
 export class RequestUser {
-    userId: string;
-    username: string;
-    role: string;
+  userId: string;
+  username: string;
+  role: 'user' | 'admin';
 }

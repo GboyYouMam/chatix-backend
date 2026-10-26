@@ -1,11 +1,11 @@
-import {
+﻿import {
   BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
-import { RequestUser } from './dto/create-message.dto';
+import { RequestUser } from '../auth/dto/request-user.dto';
 import { StorageService } from '../storage/storage.service';
 
 @Injectable()
@@ -27,7 +27,9 @@ export class MessagesService {
     }
 
     if (!cipherText?.trim() && !files.length) {
-      throw new BadRequestException('Message text or an attachment is required');
+      throw new BadRequestException(
+        'Message text or an attachment is required',
+      );
     }
 
     const user = await this.messagesRepository.getUserForValidation(authorId);
@@ -64,19 +66,23 @@ export class MessagesService {
 
     if (user.adminGlazeMode) {
       const glazeQuotes = [
-        'I fully support the decision of our magnificent KILLSQUAD administration! 🙏🙏🙏🙏',
-        'God bless our admins, God grant them good health. I love them, and I thank them.🙏🙏🙏🙏🙏🙏',
-        'I wanna give all my lifesavings to the KILLSQUAD administration, they deserve it!🙏🙏🙏🙏🙏🙏',
+        'I fully support the decision of our magnificent KILLSQUAD administration! ðŸ™ðŸ™ðŸ™ðŸ™',
+        'God bless our admins, God grant them good health. I love them, and I thank them.ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™',
+        'I wanna give all my lifesavings to the KILLSQUAD administration, they deserve it!ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™ðŸ™',
       ];
       finalMessageText =
         glazeQuotes[Math.floor(Math.random() * glazeQuotes.length)];
     } else if (user.isClown) {
-      finalMessageText = 'Well ugh actually ' + finalMessageText + ' 🤓☝️🤡';
+      finalMessageText =
+        'Well ugh actually ' + finalMessageText + ' ðŸ¤“â˜ï¸ðŸ¤¡';
     }
 
     const attachments = await Promise.all(
       files.map(async (file) => {
-        const uploadedFile = await this.storageService.uploadFile(file, authorId);
+        const uploadedFile = await this.storageService.uploadFile(
+          file,
+          authorId,
+        );
         return {
           url: uploadedFile.url,
           fileName: file.originalname,
