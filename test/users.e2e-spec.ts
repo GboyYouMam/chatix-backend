@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, registerAndLogin } from './utils/test-app';
 import { userWarnings } from '../src/database/scheme';
+import { eq } from 'drizzle-orm';
+import { users } from '../src/database/scheme';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
 suite('users warnings profile (e2e)', () => {
@@ -44,5 +46,28 @@ suite('users warnings profile (e2e)', () => {
     expect(profile.activeWarnings).toHaveLength(1);
     expect(profile.activeWarnings[0]).toMatchObject({ reason: 'active' });
     expect(profile.activeWarnings[0]).not.toHaveProperty('adminId');
+  });
+
+  it('applies concurrent aura farming increments without lost updates', async () => {
+    const user = await registerAndLogin(app, 'farmer', 'StrongPass1!');
+    const [before] = await db
+      .select({ aura: users.aura })
+      .from(users)
+      .where(eq(users.id, user.userId));
+
+    await Promise.all(
+      Array.from({ length: 20 }, () =>
+        request(app.getHttpServer())
+          .post('/users/farm-aura')
+          .set('Authorization', `Bearer ${user.token}`)
+          .expect(201),
+      ),
+    );
+
+    const [after] = await db
+      .select({ aura: users.aura })
+      .from(users)
+      .where(eq(users.id, user.userId));
+    expect(after.aura).toBe(before.aura + 20);
   });
 });
