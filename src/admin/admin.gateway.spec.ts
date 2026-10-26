@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { AdminGateway } from './admin.gateway';
 import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import type { Socket } from 'socket.io';
 
 describe('AdminGateway', () => {
   const auth = { authenticate: jest.fn() };
@@ -23,17 +24,19 @@ describe('AdminGateway', () => {
     gateway = module.get(AdminGateway);
   });
   it('disconnects non-admin users', async () => {
+    const emit = jest.fn();
+    const disconnect = jest.fn();
     const client = {
       id: 's1',
       data: {},
       handshake: { auth: { token: 'jwt' } },
-      emit: jest.fn(),
-      disconnect: jest.fn(),
-    } as any;
+      emit,
+      disconnect,
+    } as unknown as Socket;
     await gateway.handleConnection(client);
-    expect(client.emit).toHaveBeenCalledWith('exception', {
+    expect(emit).toHaveBeenCalledWith('exception', {
       message: 'admins only, chud',
     });
-    expect(client.disconnect).toHaveBeenCalledWith(true);
+    expect(disconnect).toHaveBeenCalledWith(true);
   });
 });

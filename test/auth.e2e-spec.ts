@@ -10,12 +10,17 @@ suite('auth (e2e)', () => {
   let app: INestApplication;
   let db: Db;
   let reset: () => Promise<void>;
+  let close: () => Promise<void>;
   beforeAll(async () => {
-    ({ app, db, reset } = await createTestApp());
+    const testApp = await createTestApp();
+    app = testApp.app;
+    db = testApp.db;
+    reset = () => testApp.reset();
+    close = () => testApp.close();
   });
   beforeEach(async () => reset());
   afterAll(async () => {
-    await app?.close();
+    await close?.();
   });
   const password = 'StrongPass1!';
   it('registers, logs in, checks current user, bans, and invalidates old token versions', async () => {
@@ -34,12 +39,16 @@ suite('auth (e2e)', () => {
       .get('/users/me')
       .set('Authorization', `Bearer ${token}`)
       .expect(403)
-      .expect(({ body }) => expect(body.code).toBe('BANNED'));
+      .expect((response) =>
+        expect((response.body as { code: string }).code).toBe('BANNED'),
+      );
     await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: 'auth_user', password })
       .expect(403)
-      .expect(({ body }) => expect(body.code).toBe('BANNED'));
+      .expect((response) =>
+        expect((response.body as { code: string }).code).toBe('BANNED'),
+      );
     await db
       .update(users)
       .set({ bannedUntil: null, tokenVersion: 1 })

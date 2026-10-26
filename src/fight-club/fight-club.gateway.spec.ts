@@ -3,6 +3,7 @@ import { FightClubGateway } from './fight-club.gateway';
 import { FightClubService } from './fight-club.service';
 import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import type { Socket } from 'socket.io';
 
 describe('FightClubGateway', () => {
   let gateway: FightClubGateway;
@@ -20,17 +21,19 @@ describe('FightClubGateway', () => {
     gateway = module.get(FightClubGateway);
   });
   it('disconnects clients rejected by shared authentication', async () => {
+    const emit = jest.fn();
+    const disconnect = jest.fn();
     const client = {
       id: 's',
       handshake: { auth: {} },
       data: {},
-      emit: jest.fn(),
-      disconnect: jest.fn(),
-    } as any;
+      emit,
+      disconnect,
+    } as unknown as Socket;
     await gateway.handleConnection(client);
-    expect(client.emit).toHaveBeenCalledWith('exception', {
+    expect(emit).toHaveBeenCalledWith('exception', {
       message: 'unauthorized',
     });
-    expect(client.disconnect).toHaveBeenCalledWith(true);
+    expect(disconnect).toHaveBeenCalledWith(true);
   });
 });

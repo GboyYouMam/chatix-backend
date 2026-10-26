@@ -17,6 +17,7 @@ export async function createTestApp(): Promise<{
   app: INestApplication;
   db: ReturnType<typeof drizzle<typeof schema>>;
   reset(): Promise<void>;
+  close(): Promise<void>;
 }> {
   const url = process.env.DATABASE_URL_TEST;
   if (!url) throw new Error('DATABASE_URL_TEST is required to run e2e tests');
@@ -36,6 +37,10 @@ export async function createTestApp(): Promise<{
   return {
     app,
     db,
+    close: async () => {
+      await app.close();
+      await connection.end();
+    },
     reset: async () => {
       await connection`TRUNCATE admin_audit_logs, user_warnings, message_attachments, messages, profile_comments, profile_respects, room_accesses, rooms, users CASCADE`;
     },
@@ -51,18 +56,17 @@ export async function registerAndLogin(
     .post('/auth/register')
     .send({ username, password })
     .expect(201);
-  const response = await request(app.getHttpServer())
+  const response = (await request(app.getHttpServer())
     .post('/auth/login')
     .send({ username, password })
-    .expect(201);
+    .expect(201)) as { body: { access_token: string } };
+  const token = response.body.access_token;
+  const payload = JSON.parse(
+    Buffer.from(token.split('.')[1], 'base64').toString(),
+  ) as { sub: string };
   return {
-    token: response.body.access_token,
-    userId: JSON.parse(
-      Buffer.from(
-        response.body.access_token.split('.')[1],
-        'base64',
-      ).toString(),
-    ).sub as string,
+    token,
+    userId: payload.sub,
   };
 }
 export async function makeAdmin(db: Db, userId: string) {

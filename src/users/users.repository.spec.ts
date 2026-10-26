@@ -1,4 +1,4 @@
-import { DbOrTx } from '../database/database.types';
+import { Db } from '../database/database.types';
 import { UsersRepository } from './users.repository';
 
 describe('UsersRepository.bumpTokenVersion', () => {
@@ -6,13 +6,13 @@ describe('UsersRepository.bumpTokenVersion', () => {
     const where = jest.fn().mockResolvedValue(undefined);
     const set = jest.fn().mockReturnValue({ where });
     const update = jest.fn().mockReturnValue({ set });
-    return { db: { update } as unknown as DbOrTx, update, set, where };
+    return { db: { update } as unknown as Db, update, set, where };
   }
 
   it('uses the supplied transaction', async () => {
     const { db, update } = fakeDb();
     const { db: tx, update: txUpdate, set, where } = fakeDb();
-    const repository = new UsersRepository(db as never);
+    const repository = new UsersRepository(db);
 
     await repository.bumpTokenVersion('user-id', tx);
 
