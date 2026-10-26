@@ -159,4 +159,37 @@ suite('achievements (e2e)', () => {
       }),
     ).toBeTruthy();
   });
+
+  it('includes unlocked, featured, and active fight title data on profiles', async () => {
+    const { token, userId } = await registerAndLogin(
+      app,
+      'profile_medals',
+      'StrongPass1!',
+    );
+    await app.get(AchievementsService).grant(userId, 'first_farm');
+    await db
+      .update(users)
+      .set({
+        featuredAchievements: ['first_farm'],
+        fightTitle: 'true adam',
+        fightTitleUntil: new Date(Date.now() + 3600000),
+      })
+      .where(eq(users.id, userId));
+    const response = await request(app.getHttpServer())
+      .get('/users/profile/profile_medals')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const profile = response.body as {
+      featuredAchievements: string[];
+      fightTitle: string | null;
+      achievements: Array<{ key: string }>;
+    };
+    expect(profile).toMatchObject({
+      featuredAchievements: ['first_farm'],
+      fightTitle: 'true adam',
+    });
+    expect(profile.achievements).toEqual([
+      expect.objectContaining({ key: 'first_farm' }),
+    ]);
+  });
 });
