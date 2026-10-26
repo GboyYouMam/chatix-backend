@@ -2,19 +2,35 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { MessagesRepository } from './messages.repository';
 import { StorageService } from '../storage/storage.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { RequestUser } from '../auth/dto/request-user.dto';
+import { RoomService } from '../rooms/room/room.service';
+import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
+
+type MessageAttachmentInput = {
+  url: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
+import {
+  assertAllowed,
+  MESSAGE_ATTACHMENT_POLICY,
+} from '../storage/file-policy';
 
 @Injectable()
 export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
   constructor(
     private readonly messagesRepository: MessagesRepository,
     private readonly storageService: StorageService,
     private readonly realtime: RealtimeService,
+    private readonly roomsService: RoomService,
   ) {}
 
   async sendMessage(
@@ -51,6 +67,7 @@ export class MessagesService {
 
     const room = await this.messagesRepository.getRoomForValidation(roomId);
     if (!room) throw new NotFoundException('Room not found');
+    await this.roomsService.assertCanAccess(roomId, authorId);
 
     if (room.status === 'quarantined' || room.status === 'banned') {
       throw new ForbiddenException(
@@ -79,32 +96,58 @@ export class MessagesService {
         'Well ugh actually ' + finalMessageText + ' ðŸ¤“â˜ï¸ðŸ¤¡';
     }
 
-    const attachments = await Promise.all(
-      files.map(async (file) => {
-        const uploadedFile = await this.storageService.uploadFile(
+    const uploadedUrls: string[] = [];
+    try {
+      const attachments: MessageAttachmentInput[] = [];
+      for (const file of files) {
+        const detected = await assertAllowed(file, MESSAGE_ATTACHMENT_POLICY);
+        const url = await this.storageService.upload(
           file,
-          authorId,
+          detected,
+          'attachments',
         );
-        return {
-          url: uploadedFile.url,
+        uploadedUrls.push(url);
+        attachments.push({
+          url,
           fileName: file.originalname,
-          mimeType: file.mimetype,
+          mimeType: detected.mime,
           size: file.size,
-        };
-      }),
-    );
-
-    return this.messagesRepository.create(
-      roomId,
-      authorId,
-      finalMessageText,
-      ipAddress,
-      attachments,
-    );
+        });
+      }
+      return await this.messagesRepository.create(
+        roomId,
+        authorId,
+        finalMessageText,
+        ipAddress,
+        attachments,
+      );
+    } catch (error) {
+      await Promise.all(
+        uploadedUrls.map(async (url) => {
+          try {
+            await this.storageService.removeUploadedFile(url);
+          } catch (cleanupError) {
+            this.logger.warn(
+              `upload.cleanup_failed: ${cleanupError instanceof Error ? cleanupError.message : 'unknown error'}`,
+            );
+          }
+        }),
+      );
+      throw error;
+    }
   }
 
-  async getRoomHistory(roomId: string) {
-    return this.messagesRepository.getRoomHistory(roomId);
+  assertCanAccess(roomId: string, userId: string) {
+    return this.roomsService.assertCanAccess(roomId, userId);
+  }
+
+  async getRoomHistory(
+    roomId: string,
+    userId: string,
+    query: GetMessagesQueryDto,
+  ) {
+    await this.roomsService.assertCanAccess(roomId, userId);
+    return this.messagesRepository.getRoomHistory(roomId, query);
   }
 
   async deleteMessage(messageId: string, actor: RequestUser) {

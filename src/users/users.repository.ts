@@ -101,15 +101,6 @@ export class UsersRepository {
     });
   }
 
-  async farmAura(userId: string) {
-    const [user] = await this.db
-      .update(scheme.users)
-      .set({ aura: sql`${scheme.users.aura} + 1` })
-      .where(eq(scheme.users.id, userId))
-      .returning({ aura: scheme.users.aura });
-    return user;
-  }
-
   async updateAvatar(userId: string, avatarUrl: string) {
     const [updatedUser] = await this.db
       .update(scheme.users)
@@ -140,6 +131,15 @@ export class UsersRepository {
       });
 
     return updatedUser;
+  }
+
+  async incrementAura(userId: string) {
+    const [user] = await this.db
+      .update(scheme.users)
+      .set({ aura: sql`${scheme.users.aura} + 1` })
+      .where(eq(scheme.users.id, userId))
+      .returning({ aura: scheme.users.aura });
+    return user?.aura;
   }
 
   async vaporizeUser(userId: string) {

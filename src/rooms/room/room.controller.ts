@@ -8,6 +8,7 @@ import {
   Patch,
   Delete,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { RoomService } from './room.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -17,7 +18,9 @@ import { CreateRoomDTO } from './dto/create-room.dto';
 import { AdminGuard } from '../../auth/admin.guard';
 import { UpdateRoomDTO } from './dto/update-room.dto';
 import { AdminAuditInterceptor } from '../../admin/admin-audit.interceptor';
-import { UseInterceptors } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
+import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 
 @Controller('rooms')
 export class RoomsController {
@@ -67,19 +70,19 @@ export class RoomsController {
   @Patch(':id/status')
   async updateRoomStatus(
     @Param('id') id: string,
-    @Body('status') status: 'active' | 'checkout' | 'banned' | 'quarantined',
+    @Body() body: UpdateRoomStatusDto,
   ) {
-    return this.roomsService.updateRoomStatus(id, status);
+    return this.roomsService.updateRoomStatus(id, body.status);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/publicity')
   async updateRoomPublicity(
     @Param('id') id: string,
-    @Body('publicity') publicity: 'public' | 'private',
+    @Body() body: UpdateRoomPublicityDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.roomsService.updateRoomPublicity(id, user.userId, publicity);
+    return this.roomsService.updateRoomPublicity(id, user.userId, body);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -91,6 +94,7 @@ export class RoomsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async joinPrivateRoom(
     @Param('id') id: string,
     @Body('password') password: string,

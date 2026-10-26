@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RoomsRepository } from './rooms.repository';
-import { CreateRoomDTO } from './dto/create-room.dto';
+import * as bcrypt from 'bcrypt';
 import { RealtimeService } from '../../realtime/realtime.service';
+import { CreateRoomDTO } from './dto/create-room.dto';
+import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 import { toPublicRoom } from './room.serializer';
+import { RoomsRepository } from './rooms.repository';
 
 @Injectable()
 export class RoomService {
@@ -30,43 +32,68 @@ export class RoomService {
       );
     }
 
-    return this.roomsRepository.create({
+    const room = await this.roomsRepository.create({
       ...data,
+      password: data.password
+        ? await bcrypt.hash(data.password, 10)
+        : undefined,
       creatorId,
     });
+    return toPublicRoom(room);
   }
 
   async getLobbyRooms() {
-    return this.roomsRepository.findLobbyRooms();
+    return (await this.roomsRepository.findLobbyRooms()).map(toPublicRoom);
   }
 
   async getRoomsDetails(roomId: string) {
     const room = await this.roomsRepository.findById(roomId);
-    if (!room) {
-      throw new NotFoundException('Room not found lmao try again');
-    }
+    if (!room) throw new NotFoundException('Room not found lmao try again');
     if (room.status === 'banned') {
       throw new ForbiddenException(
         'This room is freakin banned for some reason by us, admins get a job instead',
       );
     }
-    return room;
+    return toPublicRoom(room);
+  }
+
+  async assertCanAccess(roomId: string, userId: string): Promise<void> {
+    const room = await this.roomsRepository.findById(roomId);
+    if (!room) throw new NotFoundException('Room not found');
+    if (
+      room.publicity === 'private' &&
+      room.creatorId !== userId &&
+      !(await this.roomsRepository.checkAccess(roomId, userId))
+    ) {
+      throw new ForbiddenException('private room. know the password or leave.');
+    }
   }
 
   async getRoomsByPublicity(publicity: 'public' | 'private') {
-    return this.roomsRepository.findRoomsByPublicity(publicity);
+    return (await this.roomsRepository.findRoomsByPublicity(publicity)).map(
+      toPublicRoom,
+    );
   }
 
   async updateRoomPublicity(
     roomId: string,
     userId: string,
-    newPublicity: 'public' | 'private',
+    data: UpdateRoomPublicityDto,
   ) {
     const room = await this.getRoomsDetails(roomId);
-    if (room.creatorId !== userId) {
+    if (room.creatorId !== userId)
       throw new ForbiddenException('Not your room, lil bro.');
-    }
-    return this.roomsRepository.updatePublicity(roomId, newPublicity);
+    const password =
+      data.publicity === 'private' && data.password
+        ? await bcrypt.hash(data.password, 10)
+        : null;
+    return toPublicRoom(
+      await this.roomsRepository.updatePublicity(
+        roomId,
+        data.publicity,
+        password,
+      ),
+    );
   }
 
   async updateRoom(
@@ -80,7 +107,11 @@ export class RoomService {
         "Hell nah, u'r not the owner of this room tf are u doin",
       );
     }
-    return this.roomsRepository.updateRoom(roomId, data);
+    const update = {
+      ...data,
+      ...(data.password && { password: await bcrypt.hash(data.password, 10) }),
+    };
+    return toPublicRoom(await this.roomsRepository.updateRoom(roomId, update));
   }
 
   async deleteRoom(roomId: string, userId: string) {
@@ -113,7 +144,7 @@ export class RoomService {
         },
       });
     }
-    return room;
+    return room ? toPublicRoom(room) : room;
   }
 
   async joinPrivateRoom(roomId: string, userId: string, passwordInput: string) {
@@ -127,8 +158,7 @@ export class RoomService {
 
     const hasAccess = await this.roomsRepository.checkAccess(roomId, userId);
     if (hasAccess) return { success: true, message: 'Already inside' };
-
-    if (room.password !== passwordInput) {
+    if (!(await bcrypt.compare(passwordInput, room.password ?? ''))) {
       throw new ForbiddenException('Wrong password. Get lost lmao.');
     }
 
@@ -147,13 +177,11 @@ export class RoomService {
         `Room '${roomName}' not found lmao try again`,
       );
     }
-
     if (room.status === 'banned') {
       throw new ForbiddenException(
         'This room is freakin banned for some reason by us, admins get a job instead',
       );
     }
-
-    return room;
+    return toPublicRoom(room);
   }
 }

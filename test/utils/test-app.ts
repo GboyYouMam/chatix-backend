@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -12,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Db } from '../../src/database/database.types';
 
 const loadModule = createRequire(__filename);
+let testIpSequence = 1;
 
 export async function createTestApp(): Promise<{
   app: INestApplication;
@@ -31,7 +33,8 @@ export async function createTestApp(): Promise<{
   const module = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = module.createNestApplication();
+  const app = module.createNestApplication<NestExpressApplication>();
+  app.set('trust proxy', true);
   configureApp(app, app.get(ConfigService));
   await app.init();
   return {
@@ -52,12 +55,15 @@ export async function registerAndLogin(
   username: string,
   password: string,
 ) {
+  const testIp = `198.51.100.${testIpSequence++}`;
   await request(app.getHttpServer())
     .post('/auth/register')
+    .set('x-forwarded-for', testIp)
     .send({ username, password })
     .expect(201);
   const response = (await request(app.getHttpServer())
     .post('/auth/login')
+    .set('x-forwarded-for', testIp)
     .send({ username, password })
     .expect(201)) as { body: { access_token: string } };
   const token = response.body.access_token;

@@ -9,6 +9,7 @@ import {
   Delete,
   UploadedFiles,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { MessagesService } from './messages.service';
@@ -18,6 +19,13 @@ import { RequestUser } from '../auth/dto/request-user.dto';
 import { CreateMessageDTO } from './dto/create-message.dto';
 import { MessagesGateway } from './messages.gateway';
 import { AdminAuditInterceptor } from '../admin/admin-audit.interceptor';
+import { MESSAGE_ATTACHMENT_POLICY } from '../storage/file-policy';
+import { Throttle } from '@nestjs/throttler';
+import {
+  UserScopedThrottle,
+  UserThrottlerGuard,
+} from '../common/guards/user-throttler.guard';
+import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -28,9 +36,12 @@ export class MessagesController {
   ) {}
 
   @Post()
+  @UserScopedThrottle()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard, UserThrottlerGuard)
   @UseInterceptors(
-    FilesInterceptor('attachments', 5, {
-      limits: { fileSize: 10 * 1024 * 1024 },
+    FilesInterceptor('attachments', MESSAGE_ATTACHMENT_POLICY.maxFiles, {
+      limits: { fileSize: MESSAGE_ATTACHMENT_POLICY.maxBytes },
     }),
   )
   async createMessage(
@@ -51,8 +62,12 @@ export class MessagesController {
   }
 
   @Get(':roomId')
-  async getHistory(@Param('roomId') roomId: string) {
-    return this.messagesService.getRoomHistory(roomId);
+  async getHistory(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: RequestUser,
+    @Query() query: GetMessagesQueryDto,
+  ) {
+    return this.messagesService.getRoomHistory(roomId, user.userId, query);
   }
 
   @UseInterceptors(AdminAuditInterceptor)

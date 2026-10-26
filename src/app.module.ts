@@ -13,10 +13,17 @@ import { DatabaseModule } from './database/database.module';
 import { validateEnv } from './config/env.validation';
 import { LoggingModule } from './logging/logging.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { GlobalThrottlerGuard } from './common/guards/user-throttler.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 120 }],
+      errorMessage: 'chill. too many requests.',
+    }),
     LoggingModule,
     RealtimeModule,
     DatabaseModule,
@@ -29,6 +36,9 @@ import { RealtimeModule } from './realtime/realtime.module';
     FightClubModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: GlobalThrottlerGuard },
+  ],
 })
 export class AppModule {}

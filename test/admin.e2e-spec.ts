@@ -1,7 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import * as bcrypt from 'bcrypt';
 import { createTestApp, makeAdmin, registerAndLogin } from './utils/test-app';
 import type { Db } from '../src/database/database.types';
+import * as schema from '../src/database/scheme';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
 suite('admin detail endpoints (e2e)', () => {
@@ -119,5 +121,42 @@ suite('admin detail endpoints (e2e)', () => {
       .expect(200);
     expect(detail.body).toMatchObject({ debt: 200, aura: -4000 });
     await update({ aura: 5 }).expect(400);
+  });
+
+  it('never exposes private room password hashes to admins', async () => {
+    const admin = await registerAndLogin(app, 'room_admin', 'StrongPass1!');
+    await makeAdmin(db, admin.userId);
+    const passwordHash = await bcrypt.hash('room-secret', 10);
+    const [room] = await db
+      .insert(schema.rooms)
+      .values({
+        creatorId: admin.userId,
+        title: 'private-hash-check',
+        publicity: 'private',
+        password: passwordHash,
+      })
+      .returning({ id: schema.rooms.id });
+
+    const headers = { Authorization: `Bearer ${admin.token}` };
+    const list = await request(app.getHttpServer())
+      .get('/admin/rooms')
+      .set(headers)
+      .expect(200);
+    const roomsPage = list.body as {
+      items: Array<{ id: string; password?: string }>;
+    };
+    const listedRoom = roomsPage.items.find(
+      (item: { id: string }) => item.id === room.id,
+    );
+    expect(listedRoom).toBeDefined();
+    expect(listedRoom).not.toHaveProperty('password');
+    expect(JSON.stringify(listedRoom)).not.toContain(passwordHash);
+
+    const detail = await request(app.getHttpServer())
+      .get(`/admin/rooms/${room.id}`)
+      .set(headers)
+      .expect(200);
+    expect(detail.body).not.toHaveProperty('password');
+    expect(JSON.stringify(detail.body)).not.toContain(passwordHash);
   });
 });

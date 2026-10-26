@@ -129,10 +129,14 @@ export class RoomsRepository {
     return deletedRoom;
   }
 
-  async updatePublicity(roomId: string, newPublicity: 'public' | 'private') {
+  async updatePublicity(
+    roomId: string,
+    newPublicity: 'public' | 'private',
+    password: string | null,
+  ) {
     const [updatedRoom] = await this.db
       .update(scheme.rooms)
-      .set({ publicity: newPublicity })
+      .set({ publicity: newPublicity, password })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
     return updatedRoom;
@@ -146,6 +150,7 @@ export class RoomsRepository {
         topic: data.topic,
         description: data.description,
         publicity: data.publicity,
+        password: data.publicity === 'public' ? null : data.password,
       })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
@@ -171,7 +176,6 @@ export class RoomsRepository {
       .onConflictDoNothing();
     return true;
   }
-
   async findAllAdmin() {
     return this.db.query.rooms.findMany({
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
