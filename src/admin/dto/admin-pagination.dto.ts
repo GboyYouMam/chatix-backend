@@ -26,4 +26,14 @@ export class AdminPaginationDTO {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  room?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  user?: string;
 }

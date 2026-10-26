@@ -128,7 +128,8 @@ suite('admin detail endpoints (e2e)', () => {
       )
       .set(headers)
       .expect(200);
-    const items = filtered.body.items as Array<Record<string, unknown>>;
+    const items = (filtered.body as { items: Array<Record<string, unknown>> })
+      .items;
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       cipherText: 'match one',
