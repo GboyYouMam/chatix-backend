@@ -14,7 +14,6 @@ import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
 import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
-import { wsAuthError } from '../auth/ws-auth-error';
 import { socketUserData } from '../auth/socket-user';
 import { FightClubService } from './fight-club.service';
 import { FightCreateDto } from './dto/fight-create.dto';
@@ -41,17 +40,17 @@ export class FightClubGateway
   afterInit(server: Server) {
     this.fightClubService.server = server;
     this.realtime.register('/fight-club', server);
+    server.use(this.auth.middleware());
   }
 
   async handleConnection(client: Socket) {
-    try {
-      const user = await this.auth.authenticate(client);
-      await client.join(`user:${user.userId}`);
-      client.emit('fight:challenges', this.fightClubService.listChallenges());
-    } catch (error) {
-      client.emit('exception', wsAuthError(error));
+    const user = socketUserData(client).user;
+    if (!user) {
       client.disconnect(true);
+      return;
     }
+    await client.join(`user:${user.userId}`);
+    client.emit('fight:challenges', this.fightClubService.listChallenges());
   }
 
   @SubscribeMessage('fight:hit')
@@ -68,15 +67,13 @@ export class FightClubGateway
       Date.now(),
     );
     if (result.kind === 'rejected') {
-      this.logger.debug(
-        JSON.stringify({
-          event: 'fight.hit.rejected',
-          matchId: payload.matchId,
-          userId: user.userId,
-          socketId: client.id,
-          reason: result.reason,
-        }),
-      );
+      this.logger.debug({
+        event: 'fight.hit.rejected',
+        matchId: payload.matchId,
+        userId: user.userId,
+        socketId: client.id,
+        reason: result.reason,
+      });
     } else if (result.kind === 'miss') {
       client.emit('fight:stun', { stunDuration: result.stunMs });
     } else if (result.kind === 'ko') {

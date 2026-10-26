@@ -11,7 +11,6 @@ import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
 import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
-import { wsAuthError } from '../auth/ws-auth-error';
 import { socketUserData } from '../auth/socket-user';
 
 @UseFilters(WsExceptionsFilter)
@@ -29,26 +28,22 @@ export class AdminGateway
   afterInit(server: Server) {
     this.server = server;
     this.realtime.register('/admin', server);
+    server.use(this.auth.middleware({ adminOnly: true }));
   }
   async handleConnection(client: Socket) {
-    try {
-      const user = await this.auth.authenticate(client);
-      if (user.role !== 'admin') {
-        client.emit('exception', { message: 'admins only, chud' });
-        client.disconnect(true);
-        return;
-      }
-      await client.join('admins');
-      this.logger.log({
-        event: 'ws.connect',
-        userId: user.userId,
-        socketId: client.id,
-        namespace: '/admin',
-      });
-    } catch (error) {
-      client.emit('exception', wsAuthError(error));
+    const user = socketUserData(client).user;
+    if (!user) {
       client.disconnect(true);
+      return;
     }
+    await client.join('admins');
+    await client.join(`user:${user.userId}`);
+    this.logger.log({
+      event: 'ws.connect',
+      userId: user.userId,
+      socketId: client.id,
+      namespace: '/admin',
+    });
   }
   handleDisconnect(client: Socket) {
     this.logger.log({

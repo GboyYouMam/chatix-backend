@@ -47,15 +47,6 @@ describe('FightClubGateway', () => {
     };
   };
 
-  it('disconnects clients rejected by shared authentication', async () => {
-    const { socket, emit, disconnect } = makeClient();
-    await gateway.handleConnection(socket);
-    expect(emit).toHaveBeenCalledWith('exception', {
-      message: 'unauthorized',
-    });
-    expect(disconnect).toHaveBeenCalledWith(true);
-  });
-
   it('emits the update before game over on knockout', async () => {
     const events: string[] = [];
     const roomEmit = jest.fn((event: string) => events.push(event));

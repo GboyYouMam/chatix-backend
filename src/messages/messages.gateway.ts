@@ -22,7 +22,6 @@ import { WsAuthService } from '../auth/ws-auth.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { WsExceptionsFilter } from '../common/filters/ws-exception.filter';
 import { wsValidationPipe } from '../common/pipes/ws-validation.pipe';
-import { wsAuthError } from '../auth/ws-auth-error';
 import { socketUserData } from '../auth/socket-user';
 import { JoinRoomDto } from './dto/join-room.dto';
 
@@ -42,21 +41,21 @@ export class MessagesGateway
   afterInit(server: Server) {
     this.server = server;
     this.realtime.register('/', server);
+    server.use(this.auth.middleware());
   }
   async handleConnection(client: Socket) {
-    try {
-      const user = await this.auth.authenticate(client);
-      await client.join(`user:${user.userId}`);
-      this.logger.log({
-        event: 'ws.connect',
-        userId: user.userId,
-        socketId: client.id,
-        namespace: '/',
-      });
-    } catch (error) {
-      client.emit('exception', wsAuthError(error));
+    const user = socketUserData(client).user;
+    if (!user) {
       client.disconnect(true);
+      return;
     }
+    await client.join(`user:${user.userId}`);
+    this.logger.log({
+      event: 'ws.connect',
+      userId: user.userId,
+      socketId: client.id,
+      namespace: '/',
+    });
   }
   handleDisconnect(client: Socket) {
     this.logger.log({
