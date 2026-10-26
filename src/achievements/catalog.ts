@@ -268,7 +268,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   ],
   [
     'actually_went_touch_grass',
-    'went touch grass',
+    'actually went touch grass',
     "gone 7 days. grass reportedly touched. we don't believe you.",
     'moderation',
     'bronze',
