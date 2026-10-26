@@ -113,6 +113,13 @@
       "when": 1793055705175,
       "tag": "0015_shop",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793056838648,
+      "tag": "0016_economy_perks",
+      "breakpoints": true
     }
   ]
 }

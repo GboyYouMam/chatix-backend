@@ -65,6 +65,9 @@ export const users = pgTable('users', {
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   fightTitle: varchar('fight_title', { length: 50 }),
   fightTitleUntil: timestamp('fight_title_until', { withTimezone: true }),
+  fightInsuranceArmed: boolean('fight_insurance_armed')
+    .default(false)
+    .notNull(),
 });
 
 export const FightOutcome = pgEnum('fight_outcome', [
@@ -89,6 +92,7 @@ export const fights = pgTable(
     stakeType: varchar('stake_type', { length: 20 }).notNull(),
     stakeAmount: integer('stake_amount').notNull(),
     outcome: FightOutcome('outcome').notNull(),
+    insured: boolean('insured').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -198,6 +202,14 @@ export const rooms = pgTable(
     password: varchar('password', { length: 255 }),
     //fun
     statusReason: text('status_reason'),
+    theme: varchar('theme', { length: 24 }).default('basement').notNull(),
+    sponsoredById: uuid('sponsored_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    sponsoredUntil: timestamp('sponsored_until', { withTimezone: true }),
+    boostedUntil: timestamp('boosted_until', { withTimezone: true }),
+    spotlightMessageId: uuid('spotlight_message_id'),
+    spotlightUntil: timestamp('spotlight_until', { withTimezone: true }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -225,6 +237,7 @@ export const messages = pgTable(
     ipAddress: inet('ip_address'),
     attachmentUrl: varchar('attachment_url', { length: 1050 }),
     isDeleted: boolean('is_deleted').default(false).notNull(),
+    kind: varchar('kind', { length: 12 }).default('user').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at'),
   },
@@ -474,6 +487,31 @@ export const shopPurchases = pgTable(
     userCreatedAtIdx: index('shop_purchases_user_created_at_idx').on(
       table.userId,
       table.createdAt,
+    ),
+  }),
+);
+
+export const profileEffects = pgTable(
+  'profile_effects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    targetId: uuid('target_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    kind: varchar('kind', { length: 24 }).notNull(),
+    appliedById: uuid('applied_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    targetKindExpiresIdx: index('profile_effects_target_kind_expires_idx').on(
+      table.targetId,
+      table.kind,
+      table.expiresAt,
     ),
   }),
 );

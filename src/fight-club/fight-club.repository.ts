@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, eq, gte, or, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
@@ -25,12 +25,27 @@ export class FightClubRepository {
     }
 
     await this.db.transaction(async (tx) => {
+      // Fight insurance: an armed loser pays half the stake and the winner
+      // receives the same half, so the fight stays zero-sum. Both flags are
+      // consumed by this finished fight.
+      const [loser] = await tx
+        .select({ armed: scheme.users.fightInsuranceArmed })
+        .from(scheme.users)
+        .where(eq(scheme.users.id, loserId))
+        .for('update');
+      const insured = loser?.armed === true;
+      await tx
+        .update(scheme.users)
+        .set({ fightInsuranceArmed: false })
+        .where(inArray(scheme.users.id, [winnerId, loserId]));
+      const amount = insured ? Math.floor(stakeAmount / 2) : stakeAmount;
+
       switch (stakeType) {
         case 'aura': {
           const winner = await tx
             .update(scheme.users)
             .set({
-              aura: sql`${scheme.users.aura} + ${stakeAmount}`,
+              aura: sql`${scheme.users.aura} + ${amount}`,
               fightTitle: 'true adam',
               fightTitleUntil: new Date(Date.now() + 86400000),
             })
@@ -41,7 +56,7 @@ export class FightClubRepository {
           const loser = await tx
             .update(scheme.users)
             .set({
-              aura: sql`${scheme.users.aura} - ${stakeAmount}`,
+              aura: sql`${scheme.users.aura} - ${amount}`,
               fightTitle: 'sub5',
               fightTitleUntil: new Date(Date.now() + 86400000),
             })
@@ -54,7 +69,7 @@ export class FightClubRepository {
           const winner = await tx
             .update(scheme.users)
             .set({
-              debt: sql`${scheme.users.debt} - ${stakeAmount}`,
+              debt: sql`${scheme.users.debt} - ${amount}`,
               fightTitle: 'true adam',
               fightTitleUntil: new Date(Date.now() + 86400000),
             })
@@ -65,7 +80,7 @@ export class FightClubRepository {
           const loser = await tx
             .update(scheme.users)
             .set({
-              debt: sql`${scheme.users.debt} + ${stakeAmount}`,
+              debt: sql`${scheme.users.debt} + ${amount}`,
               fightTitle: 'sub5',
               fightTitleUntil: new Date(Date.now() + 86400000),
             })
@@ -100,6 +115,7 @@ export class FightClubRepository {
         stakeType,
         stakeAmount,
         outcome,
+        insured,
       });
     });
   }

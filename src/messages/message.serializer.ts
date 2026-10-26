@@ -30,12 +30,14 @@ const NO_AUTHOR_COSMETICS: AuthorCosmetics = {
   nameColor: null,
   nameIcon: null,
   quoteStyle: null,
+  vineBoom: false,
 };
 
 export function toPublicMessage(
   row: MessageRow,
   ipTag: string | null,
   authorCosmetics: AuthorCosmetics = NO_AUTHOR_COSMETICS,
+  renameCursed = false,
 ) {
   return {
     id: row.id,
@@ -52,10 +54,12 @@ export function toPublicMessage(
           forcedTitle: row.author.forcedTitle,
           isMogged: row.author.isMogged ?? false,
           featuredAchievements: row.author.featuredAchievements ?? [],
+          renameCursed,
           cosmetics: {
             nameColor: authorCosmetics.nameColor,
             nameIcon: authorCosmetics.nameIcon,
             quoteStyle: authorCosmetics.quoteStyle,
+            vineBoom: authorCosmetics.vineBoom,
           },
         }
       : null,
