@@ -77,4 +77,47 @@ describe('file policy', () => {
       await detectFile(Buffer.from([0x61, 0x00, 0x62]), 'text/plain'),
     ).toBeNull();
   });
+
+  it.each([
+    ['png', png],
+    ['jpg', Buffer.from([0xff, 0xd8, 0xff, 0xe0])],
+    ['gif', Buffer.from('GIF89a')],
+    [
+      'webp',
+      Buffer.concat([
+        Buffer.from('RIFF'),
+        Buffer.alloc(4),
+        Buffer.from('WEBPVP8 '),
+      ]),
+    ],
+    ['pdf', Buffer.from('%PDF-1.7')],
+    ['zip', Buffer.from([0x50, 0x4b, 0x03, 0x04])],
+    ['mp4', Buffer.concat([Buffer.alloc(4), Buffer.from('ftypisom')])],
+    [
+      'webm',
+      Buffer.concat([
+        Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+        Buffer.from('....webm'),
+      ]),
+    ],
+    ['mp3', Buffer.from('ID3\x04')],
+  ])('accepts allowlisted %s uploads', async (ext, buffer) => {
+    await expect(
+      assertAllowed(
+        file(buffer, 'application/octet-stream'),
+        MESSAGE_ATTACHMENT_POLICY,
+      ),
+    ).resolves.toMatchObject({ ext });
+  });
+
+  it('rejects a malformed ASF header without parsing it', async () => {
+    // ASF header GUID followed by a zero-size sub-header (the file-type DoS input).
+    const asf = Buffer.concat([
+      Buffer.from('3026b2758e66cf11a6d900aa0062ce6c', 'hex'),
+      Buffer.alloc(64),
+    ]);
+    await expect(
+      assertAllowed(file(asf, 'video/x-ms-asf'), MESSAGE_ATTACHMENT_POLICY),
+    ).rejects.toThrow('file type not allowed. nice try.');
+  });
 });
