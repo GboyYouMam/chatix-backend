@@ -46,4 +46,78 @@ suite('admin detail endpoints (e2e)', () => {
       .expect(200);
     expect(JSON.stringify(list.body)).not.toMatch(/"[^"]*_\w+"\s*:/);
   });
+
+  it('autobans on the third active warning and keeps the ban after revocation', async () => {
+    const target = await registerAndLogin(app, 'warn_target', 'StrongPass1!');
+    const admin = await registerAndLogin(app, 'warn_admin', 'StrongPass1!');
+    await makeAdmin(db, admin.userId);
+
+    let warningId = '';
+    for (let i = 0; i < 3; i += 1) {
+      const response = await request(app.getHttpServer())
+        .post(`/admin/users/${target.userId}/warnings`)
+        .set('Authorization', `Bearer ${admin.token}`)
+        .send({ reason: `warning ${i + 1}` })
+        .expect(201);
+      if (i === 2) {
+        const body = response.body as {
+          warning: { id: string };
+          autoBanned: boolean;
+          user: { activeWarningsCount: number };
+        };
+        warningId = body.warning.id;
+        expect(body.autoBanned).toBe(true);
+        expect(body.user.activeWarningsCount).toBe(3);
+      }
+    }
+
+    const [banned] = await db.query.users.findMany({
+      where: (users, { eq }) => eq(users.id, target.userId),
+      columns: { bannedUntil: true, tokenVersion: true },
+    });
+    expect(banned.bannedUntil).toBeInstanceOf(Date);
+    expect(banned.tokenVersion).toBe(1);
+
+    await request(app.getHttpServer())
+      .delete(`/admin/users/${target.userId}/warnings/${warningId}`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .expect(200);
+    const [afterRevoke] = await db.query.users.findMany({
+      where: (users, { eq }) => eq(users.id, target.userId),
+      columns: { bannedUntil: true },
+    });
+    expect(afterRevoke.bannedUntil).toEqual(banned.bannedUntil);
+  });
+
+  it('clears ban metadata and applies atomic modifier deltas', async () => {
+    const target = await registerAndLogin(
+      app,
+      'modifier_target',
+      'StrongPass1!',
+    );
+    const admin = await registerAndLogin(app, 'modifier_admin', 'StrongPass1!');
+    await makeAdmin(db, admin.userId);
+
+    const update = (body: Record<string, unknown>) =>
+      request(app.getHttpServer())
+        .patch(`/admin/users/${target.userId}/modifiers`)
+        .set('Authorization', `Bearer ${admin.token}`)
+        .send(body);
+
+    await update({ debtDelta: 100 }).expect(200);
+    await update({ debtDelta: 100, auraDelta: -5000 }).expect(200);
+    await update({
+      bannedUntil: new Date(Date.now() + 86400000).toISOString(),
+      banReason: 'manual',
+    }).expect(200);
+    const cleared = await update({ bannedUntil: null }).expect(200);
+    expect(cleared.body).toMatchObject({ bannedUntil: null, banReason: null });
+
+    const detail = await request(app.getHttpServer())
+      .get(`/admin/users/${target.userId}`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .expect(200);
+    expect(detail.body).toMatchObject({ debt: 200, aura: -4000 });
+    await update({ aura: 5 }).expect(400);
+  });
 });
