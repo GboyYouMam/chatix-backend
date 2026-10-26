@@ -323,7 +323,7 @@ describe('FightClubService', () => {
 
     expect(result).toEqual({ kind: 'settlement_failed' });
     expect(roomEmit).toHaveBeenCalledWith('fight:error', {
-      message: 'the soap market crashed. result not saved, try again.',
+      message: 'the soap cartel crashed. result not saved, try again.',
     });
     expect(matches.has(matchId)).toBe(false);
     expect(roomEmit).not.toHaveBeenCalledWith(
