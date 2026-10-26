@@ -50,7 +50,80 @@ export const users = pgTable('users', {
   left_banner_url: varchar('left_banner_url', { length: 255 }),
   right_banner_url: varchar('right_banner_url', { length: 255 }),
   respectCount: integer('respect_count').default(0).notNull(),
+  featuredAchievements: text('featured_achievements')
+    .array()
+    .default([])
+    .notNull(),
+  timezone: varchar('timezone', { length: 64 }),
+  messagesCount: integer('messages_count').default(0).notNull(),
+  auraFarmCount: integer('aura_farm_count').default(0).notNull(),
+  fightsWon: integer('fights_won').default(0).notNull(),
+  fightsLost: integer('fights_lost').default(0).notNull(),
+  winStreak: integer('win_streak').default(0).notNull(),
+  lossStreak: integer('loss_streak').default(0).notNull(),
+  lastSeenAt: timestamp('last_seen_at'),
+  fightTitle: varchar('fight_title', { length: 50 }),
+  fightTitleUntil: timestamp('fight_title_until', { withTimezone: true }),
 });
+
+export const FightOutcome = pgEnum('fight_outcome', [
+  'ko',
+  'rage_quit',
+  'cancelled',
+]);
+
+export const fights = pgTable(
+  'fights',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    player1Id: uuid('player1_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    player2Id: uuid('player2_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    winnerId: uuid('winner_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    stakeType: varchar('stake_type', { length: 20 }).notNull(),
+    stakeAmount: integer('stake_amount').notNull(),
+    outcome: FightOutcome('outcome').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    player1CreatedAtIdx: index('fights_player1_created_at_idx').on(
+      table.player1Id,
+      table.createdAt,
+    ),
+    player2CreatedAtIdx: index('fights_player2_created_at_idx').on(
+      table.player2Id,
+      table.createdAt,
+    ),
+    winnerCreatedAtIdx: index('fights_winner_created_at_idx').on(
+      table.winnerId,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const userAchievements = pgTable(
+  'user_achievements',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    key: varchar('key', { length: 40 }).notNull(),
+    unlockedAt: timestamp('unlocked_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.key] }),
+    keyIdx: index('user_achievements_key_idx').on(table.key),
+  }),
+);
 
 export const profileComments = pgTable(
   'profile_comments',
