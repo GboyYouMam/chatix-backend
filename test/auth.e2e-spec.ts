@@ -23,6 +23,13 @@ suite('auth (e2e)', () => {
     await close?.();
   });
   const password = 'StrongPass1!';
+  it('returns 400 for invalid registration input', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ username: 'bad name', password })
+      .expect(400);
+  });
+
   it('registers, logs in, checks current user, bans, and invalidates old token versions', async () => {
     const { token, userId } = await registerAndLogin(
       app,
