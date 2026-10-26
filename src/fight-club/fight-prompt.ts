@@ -22,3 +22,15 @@ export function toPublicPrompt(prompt: FightPrompt): {
 } {
   return { promptId: prompt.promptId, key: prompt.key };
 }
+
+export function isSuspiciousCadence(timestamps: number[]): boolean {
+  if (timestamps.length < 11) return false;
+  const recent = timestamps.slice(-11);
+  const intervals = recent
+    .slice(1)
+    .map((timestamp, index) => timestamp - recent[index]);
+  const mean = intervals.reduce((sum, interval) => sum + interval, 0) / 10;
+  const variance =
+    intervals.reduce((sum, interval) => sum + (interval - mean) ** 2, 0) / 10;
+  return Math.sqrt(variance) < 15;
+}

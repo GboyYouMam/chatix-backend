@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Server, Socket } from 'socket.io';
 import { FightClubRepository } from './fight-club.repository';
@@ -138,5 +139,31 @@ describe('FightClubService', () => {
     await expect(
       service.handleHit('p1', creator.id, dto, 1201),
     ).resolves.toEqual({ kind: 'rejected', reason: 'stunned' });
+  });
+
+  it('logs suspicious cadence once per player per match', async () => {
+    const { matchId, creator } = makeFight();
+    const match = matches.get(matchId);
+    if (!match) throw new Error('expected match');
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+    for (let index = 0; index < 13; index += 1) {
+      const prompt = match.prompt;
+      await service.handleHit(
+        'p1',
+        creator.id,
+        { matchId, promptId: prompt.promptId, k: prompt.key },
+        prompt.sentAt + 200,
+      );
+    }
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: 'fight.suspicious_cadence',
+        matchId,
+        userId: 'p1',
+      }),
+    );
   });
 });

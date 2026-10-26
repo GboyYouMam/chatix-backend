@@ -5,6 +5,7 @@ import { FightHitDto } from './dto/fight-hit.dto';
 import {
   createPrompt,
   HIT_COOLDOWN_MS,
+  isSuspiciousCadence,
   MIN_REACTION_MS,
   STUN_MS,
   toPublicPrompt,
@@ -23,6 +24,7 @@ import { FightClubRepository } from './fight-club.repository';
 @Injectable()
 export class FightClubService {
   private activeMatches = new Map<string, MatchState>();
+  private suspiciousCadenceLogged = new Set<string>();
   public server: Server;
   private logger = new Logger('FightClubService');
 
@@ -181,6 +183,20 @@ export class FightClubService {
     player.lastHitAt = now;
     player.hitTimestamps.push(now);
     if (player.hitTimestamps.length > 11) player.hitTimestamps.shift();
+    const cadenceKey = `${dto.matchId}:${userId}`;
+    if (
+      !this.suspiciousCadenceLogged.has(cadenceKey) &&
+      isSuspiciousCadence(player.hitTimestamps)
+    ) {
+      this.suspiciousCadenceLogged.add(cadenceKey);
+      this.logger.warn(
+        JSON.stringify({
+          event: 'fight.suspicious_cadence',
+          matchId: dto.matchId,
+          userId,
+        }),
+      );
+    }
 
     player.combo += 1;
     enemy.combo = 0;
@@ -232,6 +248,8 @@ export class FightClubService {
       this.logger.error(e);
     } finally {
       this.activeMatches.delete(matchId);
+      this.suspiciousCadenceLogged.delete(`${matchId}:${match.player1.id}`);
+      this.suspiciousCadenceLogged.delete(`${matchId}:${match.player2.id}`);
     }
   }
 
