@@ -22,9 +22,7 @@ export class UsersService {
       throw new NotFoundException('Foid not found');
     }
 
-    const respectCount = await this.usersRepository.countProfileRespects(
-      user.id,
-    );
+    const respectCount = user.respectCount;
 
     return {
       ...user,
@@ -91,18 +89,20 @@ export class UsersService {
       throw new NotFoundException('This user not found ughhhh');
     }
 
-    const [comments, hasRespected, respectCount] = await Promise.all([
+    const [comments, hasRespected, activeWarnings] = await Promise.all([
       this.usersRepository.findProfileComments(user.id),
       viewerId
         ? this.usersRepository.hasRespectedProfile(user.id, viewerId)
         : false,
-      this.usersRepository.countProfileRespects(user.id),
+      this.usersRepository.findActiveWarnings(user.id),
     ]);
 
     return {
       ...user,
-      respectCount,
-      respect_count: respectCount,
+      activeWarnings: activeWarnings.map(({ reason, createdAt }) => ({
+        reason,
+        createdAt: createdAt.toISOString(),
+      })),
       comments,
       hasRespected,
     };
@@ -158,44 +158,29 @@ export class UsersService {
       profileUser.id,
       admirerId,
     );
-    const respectCount = await this.usersRepository.countProfileRespects(
-      profileUser.id,
-    );
-
     return {
       message: respect.alreadyRespected
         ? 'Respect already given'
         : 'Respect given',
-      respectCount,
       ...respect,
     };
   }
 
   async auraFarming(userId: string) {
-    const user = await this.usersRepository.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const newAura = Number(user.aura) + 1;
-
-    await this.usersRepository.updateProfile(userId, { aura: newAura });
+    const user = await this.usersRepository.farmAura(userId);
+    if (!user) throw new NotFoundException('User not found');
 
     return {
-      aura: newAura,
+      aura: user.aura,
       message: 'aura farmed',
     };
   }
 
   async payDebt(userId: string) {
-    const user = await this.usersRepository.findById(userId);
-    if (!user) throw new NotFoundException('User not found');
-
-    if (user.debt <= 0) {
-      return { message: 'You have no debt, bro. Chill.', debt: 0 };
-    }
-
     const updated = await this.usersRepository.payDebt(userId);
+    if (!updated) throw new NotFoundException('User not found');
+    if (!updated.paid)
+      return { message: 'You have no debt, bro. Chill.', debt: 0 };
     return {
       message: '-1 credit. Keep grinding, bum.',
       debt: updated?.debt,

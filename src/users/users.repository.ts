@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, sql } from 'drizzle-orm';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -90,6 +90,26 @@ export class UsersRepository {
     });
   }
 
+  async findActiveWarnings(userId: string) {
+    return this.db.query.userWarnings.findMany({
+      where: and(
+        eq(scheme.userWarnings.userId, userId),
+        isNull(scheme.userWarnings.revokedAt),
+      ),
+      columns: { reason: true, createdAt: true },
+      orderBy: [desc(scheme.userWarnings.createdAt)],
+    });
+  }
+
+  async farmAura(userId: string) {
+    const [user] = await this.db
+      .update(scheme.users)
+      .set({ aura: sql`${scheme.users.aura} + 1` })
+      .where(eq(scheme.users.id, userId))
+      .returning({ aura: scheme.users.aura });
+    return user;
+  }
+
   async updateAvatar(userId: string, avatarUrl: string) {
     const [updatedUser] = await this.db
       .update(scheme.users)
@@ -147,16 +167,14 @@ export class UsersRepository {
   }
 
   async payDebt(userId: string) {
+    const [updatedUser] = await this.db
+      .update(scheme.users)
+      .set({ debt: sql`${scheme.users.debt} - 1` })
+      .where(and(eq(scheme.users.id, userId), sql`${scheme.users.debt} > 0`))
+      .returning({ id: scheme.users.id, debt: scheme.users.debt });
+    if (updatedUser) return { ...updatedUser, paid: true };
     const user = await this.findById(userId);
-    if (user && user.debt > 0) {
-      const [updatedUser] = await this.db
-        .update(scheme.users)
-        .set({ debt: user.debt - 1 })
-        .where(eq(scheme.users.id, userId))
-        .returning({ id: scheme.users.id, debt: scheme.users.debt });
-      return updatedUser;
-    }
-    return user;
+    return user ? { id: user.id, debt: user.debt, paid: false } : undefined;
   }
 
   async findProfileComments(profileUserId: string, limit = 50) {
@@ -201,16 +219,28 @@ export class UsersRepository {
   }
 
   async giveProfileRespect(profileUserId: string, admirerId: string) {
-    const [inserted] = await this.db
-      .insert(scheme.profileRespects)
-      .values({ profileUserId, admirerId })
-      .onConflictDoNothing()
-      .returning({ profileUserId: scheme.profileRespects.profileUserId });
-
-    return {
-      respected: true,
-      alreadyRespected: !inserted,
-    };
+    return this.db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(scheme.profileRespects)
+        .values({ profileUserId, admirerId })
+        .onConflictDoNothing()
+        .returning({ profileUserId: scheme.profileRespects.profileUserId });
+      const [user] = inserted
+        ? await tx
+            .update(scheme.users)
+            .set({ respectCount: sql`${scheme.users.respectCount} + 1` })
+            .where(eq(scheme.users.id, profileUserId))
+            .returning({ respectCount: scheme.users.respectCount })
+        : await tx
+            .select({ respectCount: scheme.users.respectCount })
+            .from(scheme.users)
+            .where(eq(scheme.users.id, profileUserId));
+      return {
+        respected: true,
+        alreadyRespected: !inserted,
+        respectCount: user.respectCount,
+      };
+    });
   }
 
   async countProfileRespects(profileUserId: string) {
