@@ -22,6 +22,8 @@ import { CreateWarningDTO } from './dto/create-warning.dto';
 import { QuarantineRoomDTO } from './dto/quarantine-room.dto';
 import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
 import { AuditAction } from './audit-action.decorator';
+import { AuditQueryDTO } from './dto/audit-query.dto';
+import { RejectRoomDTO } from './dto/reject-room.dto';
 
 @UseGuards(JwtAuthGuard, AdminGuard)
 @UseInterceptors(AdminAuditInterceptor)
@@ -118,7 +120,7 @@ export class AdminController {
   }
 
   @Get('audit-logs')
-  getAuditLogs(@Query() query: AdminPaginationDTO) {
+  getAuditLogs(@Query() query: AuditQueryDTO) {
     return this.adminService.getAuditLogs(query);
   }
 }
