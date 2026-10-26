@@ -425,3 +425,55 @@ export const roomAccesses = pgTable(
     };
   },
 );
+
+export const userInventory = pgTable(
+  'user_inventory',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    itemKey: varchar('item_key', { length: 48 }).notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    acquiredAt: timestamp('acquired_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.itemKey] }),
+  }),
+);
+
+export const userEquipped = pgTable(
+  'user_equipped',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    slot: varchar('slot', { length: 16 }).notNull(),
+    itemKey: varchar('item_key', { length: 48 }).notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.slot] }),
+  }),
+);
+
+export const shopPurchases = pgTable(
+  'shop_purchases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    itemKey: varchar('item_key', { length: 48 }).notNull(),
+    price: integer('price').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userCreatedAtIdx: index('shop_purchases_user_created_at_idx').on(
+      table.userId,
+      table.createdAt,
+    ),
+  }),
+);

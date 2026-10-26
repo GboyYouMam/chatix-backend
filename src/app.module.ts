@@ -17,6 +17,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { GlobalThrottlerGuard } from './common/guards/user-throttler.guard';
 import { AchievementsModule } from './achievements/achievements.module';
+import { ShopModule } from './shop/shop.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AchievementsModule } from './achievements/achievements.module';
     RoomsModule,
     MessagesModule,
     FightClubModule,
+    ShopModule,
   ],
   controllers: [AppController],
   providers: [
