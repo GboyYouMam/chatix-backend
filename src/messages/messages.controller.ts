@@ -21,7 +21,10 @@ import { AdminGuard } from '../auth/admin.guard';
 import { MessagesGateway } from './messages.gateway';
 import { MESSAGE_ATTACHMENT_POLICY } from '../storage/file-policy';
 import { Throttle } from '@nestjs/throttler';
-import { UserThrottlerGuard } from '../common/guards/user-throttler.guard';
+import {
+  UserScopedThrottle,
+  UserThrottlerGuard,
+} from '../common/guards/user-throttler.guard';
 import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
 
 @UseGuards(JwtAuthGuard)
@@ -33,6 +36,7 @@ export class MessagesController {
   ) {}
 
   @Post()
+  @UserScopedThrottle()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @UseGuards(JwtAuthGuard, UserThrottlerGuard)
   @UseInterceptors(

@@ -1,6 +1,9 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable, SetMetadata } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { RequestUser } from '../../auth/dto/request-user.dto';
+
+export const USER_SCOPED_THROTTLE = 'user-scoped-throttle';
+export const UserScopedThrottle = () => SetMetadata(USER_SCOPED_THROTTLE, true);
 
 @Injectable()
 export class UserThrottlerGuard extends ThrottlerGuard {
@@ -15,10 +18,11 @@ export class UserThrottlerGuard extends ThrottlerGuard {
 @Injectable()
 export class GlobalThrottlerGuard extends ThrottlerGuard {
   canActivate(context: ExecutionContext): Promise<boolean> {
-    if (
-      context.getClass().name === 'MessagesController' &&
-      context.getHandler().name === 'createMessage'
-    ) {
+    const userScoped = this.reflector.getAllAndOverride<boolean>(
+      USER_SCOPED_THROTTLE,
+      [context.getHandler(), context.getClass()],
+    );
+    if (userScoped) {
       return Promise.resolve(true);
     }
     return super.canActivate(context);
