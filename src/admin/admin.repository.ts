@@ -293,11 +293,15 @@ export class AdminRepository {
   }
 
   async createAuditLog(data: CreateAuditLogData) {
-    const [entry] = await this.db
+    const [{ id }] = await this.db
       .insert(scheme.adminAuditLogs)
       .values(data)
-      .returning();
-    return entry;
+      .returning({ id: scheme.adminAuditLogs.id });
+    // Same shape as findAuditLogs, so live feed entries carry the admin username.
+    return this.db.query.adminAuditLogs.findFirst({
+      where: eq(scheme.adminAuditLogs.id, id),
+      with: { admin: { columns: { id: true, username: true } } },
+    });
   }
 
   async findAuditLogs(options: AdminPageOptions) {
