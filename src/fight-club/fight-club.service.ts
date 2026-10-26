@@ -55,13 +55,11 @@ export class FightClubService {
       status: 'LOBBY',
     };
     this.activeMatches.set(match.matchId, match);
-    this.logger.log(
-      JSON.stringify({
-        event: 'fight.match.created',
-        matchId: match.matchId,
-        userId: user.userId,
-      }),
-    );
+    this.logger.log({
+      event: 'fight.match.created',
+      matchId: match.matchId,
+      userId: user.userId,
+    });
     return this.toChallenge(match);
   }
 
@@ -163,13 +161,11 @@ export class FightClubService {
       isSuspiciousCadence(player.hitTimestamps)
     ) {
       this.suspiciousCadenceLogged.add(cadenceKey);
-      this.logger.warn(
-        JSON.stringify({
-          event: 'fight.suspicious_cadence',
-          matchId: dto.matchId,
-          userId,
-        }),
-      );
+      this.logger.warn({
+        event: 'fight.suspicious_cadence',
+        matchId: dto.matchId,
+        userId,
+      });
     }
 
     player.combo += 1;
@@ -219,15 +215,13 @@ export class FightClubService {
         stakeType,
         stakeAmount,
       );
-      this.logger.log(
-        JSON.stringify({
-          event: 'fight.match.finished',
-          matchId,
-          winnerId,
-          stakeType,
-          stakeAmount,
-        }),
-      );
+      this.logger.log({
+        event: 'fight.match.finished',
+        matchId,
+        winnerId,
+        stakeType,
+        stakeAmount,
+      });
       if (emitGameOver) {
         this.server.to(matchId).emit('fight:game_over', {
           winnerId,
@@ -237,10 +231,8 @@ export class FightClubService {
         });
       }
       return true;
-    } catch {
-      this.logger.error(
-        JSON.stringify({ event: 'fight.result_failed', matchId }),
-      );
+    } catch (error: unknown) {
+      this.logger.error({ event: 'fight.result_failed', matchId, err: error });
       this.server.to(matchId).emit('fight:error', {
         message: 'the soap market crashed. result not saved, try again.',
       });
@@ -263,13 +255,11 @@ export class FightClubService {
       } else if (match.status === 'FIGHTING') {
         const winner =
           match.player1.id === userId ? match.player2 : match.player1;
-        this.logger.log(
-          JSON.stringify({
-            event: 'fight.match.rage_quit',
-            matchId,
-            leaverId: userId,
-          }),
-        );
+        this.logger.log({
+          event: 'fight.match.rage_quit',
+          matchId,
+          leaverId: userId,
+        });
         this.server.to(matchId).emit('fight:rage_quit', {
           leaverId: userId,
           message: 'Opponent disconnected. FLAAAWLESS VICTORY.',
@@ -294,9 +284,7 @@ export class FightClubService {
     ) {
       match.prompt = createPrompt(now);
       match.status = 'FIGHTING';
-      this.logger.log(
-        JSON.stringify({ event: 'fight.match.started', matchId }),
-      );
+      this.logger.log({ event: 'fight.match.started', matchId });
       this.server.to(matchId).emit('fight:start', {
         matchId,
         prompt: toPublicPrompt(match.prompt),

@@ -196,13 +196,11 @@ describe('FightClubService', () => {
     }
 
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenCalledWith(
-      JSON.stringify({
-        event: 'fight.suspicious_cadence',
-        matchId,
-        userId: creator.userId,
-      }),
-    );
+    expect(warn).toHaveBeenCalledWith({
+      event: 'fight.suspicious_cadence',
+      matchId,
+      userId: creator.userId,
+    });
   });
 
   it('starts only after both players join from their match sockets', () => {
