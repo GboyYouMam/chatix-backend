@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { eq } from 'drizzle-orm';
 import * as schema from '../src/database/scheme';
+import { MessagesRepository } from '../src/messages/messages.repository';
 import { createTestApp, registerAndLogin } from './utils/test-app';
 
 const suite = process.env.DATABASE_URL_TEST ? describe : describe.skip;
@@ -109,5 +110,27 @@ suite('Messages security and pagination (e2e)', () => {
       .set('Authorization', `Bearer ${guest.token}`)
       .send({ roomId: privateRoomId, cipherText: 'intrusion' })
       .expect(403);
+  });
+
+  it('rolls back a message when its attachment row cannot be inserted', async () => {
+    const before = await db.query.messages.findMany({
+      where: eq(schema.messages.roomId, roomId),
+    });
+    await expect(
+      app
+        .get(MessagesRepository)
+        .create(roomId, userId, 'atomic write', undefined, [
+          {
+            url: 'https://storage.test/attachment.pdf',
+            fileName: 'x'.repeat(256),
+            mimeType: 'application/pdf',
+            size: 1,
+          },
+        ]),
+    ).rejects.toThrow();
+    const after = await db.query.messages.findMany({
+      where: eq(schema.messages.roomId, roomId),
+    });
+    expect(after).toHaveLength(before.length);
   });
 });
