@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,6 +18,21 @@ export class RoomService {
     private readonly realtime: RealtimeService,
   ) {}
 
+  private isRoomNameConflict(error: unknown): boolean {
+    const databaseError =
+      typeof error === 'object' && error !== null && 'cause' in error
+        ? error.cause
+        : error;
+    return (
+      typeof databaseError === 'object' &&
+      databaseError !== null &&
+      'code' in databaseError &&
+      databaseError.code === '23505' &&
+      'constraint_name' in databaseError &&
+      databaseError.constraint_name === 'rooms_title_lower_unique'
+    );
+  }
+
   async createRoom(creatorId: string, data: CreateRoomDTO) {
     const user = await this.roomsRepository.getUserValidationData(creatorId);
     if (!user) throw new NotFoundException('User not found');
@@ -28,25 +44,41 @@ export class RoomService {
     }
     if (user.debt > 0) {
       throw new ForbiddenException(
-        `You are in debt (${user.debt} credits). Pay up, bum, no rooms for you.`,
+        `you're in debt (${user.debt}). pay up, bum. no rooms for you.`,
       );
     }
 
-    const room = await this.roomsRepository.create({
-      ...data,
-      password: data.password
-        ? await bcrypt.hash(data.password, 10)
-        : undefined,
-      creatorId,
-    });
+    let room;
+    try {
+      room = await this.roomsRepository.create({
+        ...data,
+        password: data.password
+          ? await bcrypt.hash(data.password, 10)
+          : undefined,
+        creatorId,
+      });
+    } catch (error) {
+      if (this.isRoomNameConflict(error)) {
+        throw new ConflictException({
+          code: 'ROOM_NAME_TAKEN',
+          message: 'this name is taken. be original, chud.',
+        });
+      }
+      throw error;
+    }
     return toPublicRoom(room);
   }
 
   async getLobbyRooms() {
-    return (await this.roomsRepository.findLobbyRooms()).map(toPublicRoom);
+    return (await this.roomsRepository.findLobbyRooms()).map((room) =>
+      toPublicRoom(room),
+    );
   }
 
-  async getRoomsDetails(roomId: string) {
+  async getRoomsDetails(
+    roomId: string,
+    viewer?: { userId: string; role: string },
+  ) {
     const room = await this.roomsRepository.findById(roomId);
     if (!room) throw new NotFoundException('Room not found lmao try again');
     if (room.status === 'banned') {
@@ -54,7 +86,7 @@ export class RoomService {
         'This room is freakin banned for some reason by us, admins get a job instead',
       );
     }
-    return toPublicRoom(room);
+    return toPublicRoom(room, viewer);
   }
 
   async assertCanAccess(roomId: string, userId: string): Promise<void> {
@@ -71,7 +103,13 @@ export class RoomService {
 
   async getRoomsByPublicity(publicity: 'public' | 'private') {
     return (await this.roomsRepository.findRoomsByPublicity(publicity)).map(
-      toPublicRoom,
+      (room) => toPublicRoom(room),
+    );
+  }
+
+  async getMyRooms(userId: string) {
+    return (await this.roomsRepository.findMine(userId)).map((room) =>
+      toPublicRoom(room, { userId, role: 'user' }),
     );
   }
 
@@ -111,14 +149,26 @@ export class RoomService {
       ...data,
       ...(data.password && { password: await bcrypt.hash(data.password, 10) }),
     };
-    return toPublicRoom(await this.roomsRepository.updateRoom(roomId, update));
+    try {
+      return toPublicRoom(
+        await this.roomsRepository.updateRoom(roomId, update),
+      );
+    } catch (error) {
+      if (this.isRoomNameConflict(error)) {
+        throw new ConflictException({
+          code: 'ROOM_NAME_TAKEN',
+          message: 'this name is taken. be original, chud.',
+        });
+      }
+      throw error;
+    }
   }
 
   async deleteRoom(roomId: string, userId: string) {
     const room = await this.getRoomsDetails(roomId);
     if (room.creatorId !== userId) {
       throw new ForbiddenException(
-        'Lil` bro why are u tring to delete someone else room? get a life lmao',
+        'lil bro why are u trying to delete someone else room? get a life lmao',
       );
     }
     return this.roomsRepository.deleteRoom(roomId);
@@ -128,7 +178,8 @@ export class RoomService {
     roomId: string,
     newStatus: 'active' | 'checkout' | 'banned' | 'quarantined',
   ) {
-    await this.getRoomsDetails(roomId);
+    const existing = await this.roomsRepository.findById(roomId);
+    if (!existing) throw new NotFoundException('Room not found');
     const room = await this.roomsRepository.updateStatus(roomId, newStatus);
     if (room) {
       const quarantined = newStatus === 'quarantined';
@@ -139,12 +190,11 @@ export class RoomService {
       this.realtime.emitToAdmins('admin:room_updated', {
         room: {
           ...toPublicRoom(room),
-          quarantinedUntil: room.quarantinedUntil?.toISOString() ?? null,
           messagesCount: await this.roomsRepository.countMessages(roomId),
         },
       });
     }
-    return room ? toPublicRoom(room) : room;
+    return room ? toPublicRoom(room, { userId: '', role: 'admin' }) : room;
   }
 
   async joinPrivateRoom(roomId: string, userId: string, passwordInput: string) {
@@ -170,7 +220,10 @@ export class RoomService {
     };
   }
 
-  async findRoomByName(roomName: string) {
+  async findRoomByName(
+    roomName: string,
+    viewer?: { userId: string; role: string },
+  ) {
     const room = await this.roomsRepository.findRoomByName(roomName);
     if (!room) {
       throw new NotFoundException(
@@ -182,6 +235,6 @@ export class RoomService {
         'This room is freakin banned for some reason by us, admins get a job instead',
       );
     }
-    return toPublicRoom(room);
+    return toPublicRoom(room, viewer);
   }
 }
