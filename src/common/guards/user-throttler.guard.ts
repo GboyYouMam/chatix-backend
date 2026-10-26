@@ -14,12 +14,12 @@ export class UserThrottlerGuard extends ThrottlerGuard {
 
 @Injectable()
 export class GlobalThrottlerGuard extends ThrottlerGuard {
-  canActivate(context: ExecutionContext) {
+  canActivate(context: ExecutionContext): Promise<boolean> {
     if (
       context.getClass().name === 'MessagesController' &&
       context.getHandler().name === 'createMessage'
     ) {
-      return true;
+      return Promise.resolve(true);
     }
     return super.canActivate(context);
   }
