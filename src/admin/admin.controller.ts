@@ -124,6 +124,19 @@ export class AdminController {
     return this.adminService.getUser(id);
   }
 
+  @Get('users/:id/ips')
+  getUserIps(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.getUserIps(id);
+  }
+
+  @Get('users/:id/messages')
+  getUserMessages(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: AdminPaginationDTO,
+  ) {
+    return this.adminService.getUserMessages(id, query);
+  }
+
   @Get('rooms')
   getRooms(@Query() query: AdminPaginationDTO) {
     return this.adminService.getRooms(query);
