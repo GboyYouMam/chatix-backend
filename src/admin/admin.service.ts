@@ -43,7 +43,7 @@ export class AdminService {
       quarantined: true,
     });
     this.realtime.emitToAdmins('admin:room_updated', { room: adminRoom });
-    return { message: 'Room quarantined', room };
+    return { message: 'Room quarantined', room: adminRoom };
   }
 
   async unquarantineRoom(roomId: string) {
@@ -58,7 +58,7 @@ export class AdminService {
       quarantined: false,
     });
     this.realtime.emitToAdmins('admin:room_updated', { room: adminRoom });
-    return { message: 'Room unquarantined', room };
+    return { message: 'Room unquarantined', room: adminRoom };
   }
 
   async updateModifiers(
@@ -147,8 +147,8 @@ export class AdminService {
   async vaporizeUser(userId: string) {
     const user = await this.usersRepository.vaporizeUser(userId);
     if (!user) throw new NotFoundException('User not found');
-    const { password, ...safeUser } = user;
-    void password;
+    const warnings = await this.adminRepository.countActiveWarnings([userId]);
+    const safeUser = toAdminUser(user, warnings.get(userId) ?? 0);
     this.realtime.emitToUser(userId, 'user:banned', {
       bannedUntil: null,
       banReason: 'vaporized',
