@@ -59,6 +59,11 @@ suite('Security controls (e2e)', () => {
       ),
     );
     expect(responses.every(({ status }) => status !== 429)).toBe(true);
+    const profile = await request(app.getHttpServer())
+      .get('/users/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect((profile.body as { aura: number }).aura).toBe(30);
   });
 
   it('allows only configured CORS origins and sets helmet headers', async () => {
