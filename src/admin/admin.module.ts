@@ -22,6 +22,6 @@ import { AuthModule } from '../auth/auth.module';
     AdminActivityLogger,
     AdminAuditInterceptor,
   ],
-  exports: [AdminAuditInterceptor],
+  exports: [AdminAuditInterceptor, AdminActivityLogger],
 })
 export class AdminModule {}
