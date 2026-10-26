@@ -2,11 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { io, type Socket } from 'socket.io-client';
-import {
-  banUser,
-  createTestApp,
-  registerAndLogin,
-} from './utils/test-app';
+import { banUser, createTestApp, registerAndLogin } from './utils/test-app';
 
 type TestApp = Awaited<ReturnType<typeof createTestApp>>;
 type ConnectErrorData = { message?: string; code?: string };

@@ -5,10 +5,7 @@ import { RoomsRepository } from './rooms.repository';
 
 @Module({
   controllers: [RoomsController],
-  providers: [
-    RoomService,
-    RoomsRepository
-  ],
-  exports: [RoomService, RoomsRepository]
+  providers: [RoomService, RoomsRepository],
+  exports: [RoomService, RoomsRepository],
 })
 export class RoomsModule {}
