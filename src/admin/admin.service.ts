@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from '../users/users.repository';
 import { MessagesRepository } from '../messages/messages.repository';
 import { AdminPageOptions, AdminRepository } from './admin.repository';
@@ -8,6 +8,7 @@ import { UpdateUserModifiersDTO } from './dto/update-user-modifiers.dto';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
   constructor(
     private readonly adminRepository: AdminRepository,
     private readonly usersRepository: UsersRepository,
@@ -87,19 +88,41 @@ export class AdminService {
     return safeUser;
   }
 
-  async addWarning(userId: string, adminId: string, reason: string) {
-    const warning = await this.adminRepository.createWarning(
+  async createWarning(userId: string, adminId: string, reason: string) {
+    const result = await this.adminRepository.createWarning(
       userId,
       adminId,
       reason,
     );
-    if (!warning) throw new NotFoundException('User not found');
-    return { message: 'Warning added', warning };
+    if (!result) throw new NotFoundException('User not found');
+    const { warning, user, autoBanned } = result;
+    const warnings = await this.adminRepository.countActiveWarnings([userId]);
+    const safeUser = toAdminUser(user, warnings.get(userId) ?? 0);
+    if (autoBanned) {
+      this.logger.warn(
+        JSON.stringify({ event: 'user.autobanned', adminId, userId }),
+      );
+      this.realtime.emitToUser(userId, 'user:banned', {
+        bannedUntil: safeUser.bannedUntil,
+        banReason: safeUser.banReason,
+      });
+      this.realtime.disconnectUser(userId);
+    }
+    this.realtime.emitToAdmins('admin:user_updated', { user: safeUser });
+    this.realtime.emitToUser(userId, 'user:updated', { userId });
+    return { warning, user: safeUser, autoBanned };
   }
 
   async revokeWarning(userId: string, warningId: string) {
     const warning = await this.adminRepository.revokeWarning(userId, warningId);
     if (!warning) throw new NotFoundException('Active warning not found');
+    const user = await this.adminRepository.findUser(userId);
+    if (user) {
+      const warnings = await this.adminRepository.countActiveWarnings([userId]);
+      this.realtime.emitToAdmins('admin:user_updated', {
+        user: toAdminUser(user, warnings.get(userId) ?? 0),
+      });
+    }
     return { message: 'Warning revoked', warning };
   }
 

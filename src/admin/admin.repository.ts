@@ -13,6 +13,7 @@ import {
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { DB_CONNECTION } from '../database/database.module';
 import * as scheme from '../database/scheme';
+import { AUTOBAN_REASON, computeAutoban } from './autoban';
 
 export interface AdminPageOptions {
   page: number;
@@ -125,22 +126,53 @@ export class AdminRepository {
 
   async createWarning(userId: string, adminId: string, reason: string) {
     return this.db.transaction(async (tx) => {
-      const [user] = await tx
-        .select({ id: scheme.users.id })
+      const [currentUser] = await tx
+        .select()
         .from(scheme.users)
         .where(eq(scheme.users.id, userId))
         .limit(1);
-      if (!user) return null;
+      if (!currentUser) return null;
 
       const [warning] = await tx
         .insert(scheme.userWarnings)
         .values({ userId, adminId, reason })
         .returning();
-      await tx
+      const [{ activeWarnings }] = await tx
+        .select({ activeWarnings: count() })
+        .from(scheme.userWarnings)
+        .where(
+          and(
+            eq(scheme.userWarnings.userId, userId),
+            isNull(scheme.userWarnings.revokedAt),
+          ),
+        );
+      const now = new Date();
+      const autoBan = computeAutoban(
+        activeWarnings,
+        currentUser.bannedUntil,
+        now,
+      );
+      const autoBanned = Boolean(
+        autoBan &&
+        (!currentUser.bannedUntil ||
+          autoBan.bannedUntil > currentUser.bannedUntil),
+      );
+      const [user] = await tx
         .update(scheme.users)
-        .set({ warnsCount: sql`${scheme.users.warnsCount} + 1` })
-        .where(eq(scheme.users.id, userId));
-      return warning;
+        .set({
+          warnsCount: activeWarnings,
+          ...(autoBanned
+            ? {
+                bannedUntil: autoBan?.bannedUntil,
+                banReason: AUTOBAN_REASON,
+                autoBannedAt: now,
+                tokenVersion: sql`${scheme.users.tokenVersion} + 1`,
+              }
+            : {}),
+        })
+        .where(eq(scheme.users.id, userId))
+        .returning();
+      return { warning, user, autoBanned };
     });
   }
 
@@ -159,9 +191,18 @@ export class AdminRepository {
         .returning();
       if (!warning) return null;
 
+      const [{ activeWarnings }] = await tx
+        .select({ activeWarnings: count() })
+        .from(scheme.userWarnings)
+        .where(
+          and(
+            eq(scheme.userWarnings.userId, userId),
+            isNull(scheme.userWarnings.revokedAt),
+          ),
+        );
       await tx
         .update(scheme.users)
-        .set({ warnsCount: sql`greatest(${scheme.users.warnsCount} - 1, 0)` })
+        .set({ warnsCount: activeWarnings })
         .where(eq(scheme.users.id, userId));
       return warning;
     });

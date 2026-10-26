@@ -52,7 +52,7 @@ export class AdminController {
     @Body() body: CreateWarningDTO,
     @CurrentUser() admin: RequestUser,
   ) {
-    return this.adminService.addWarning(id, admin.userId, body.reason);
+    return this.adminService.createWarning(id, admin.userId, body.reason);
   }
 
   @Get('users/:id/warnings')
