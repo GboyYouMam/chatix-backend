@@ -5,12 +5,11 @@ import {
   Param,
   Body,
   UseGuards,
-  Ip,
-  Delete,
   UploadedFiles,
   UseInterceptors,
   Query,
   ParseUUIDPipe,
+  Req,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { MessagesService } from './messages.service';
@@ -19,7 +18,6 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { CreateMessageDTO } from './dto/create-message.dto';
 import { MessagesGateway } from './messages.gateway';
-import { AdminAuditInterceptor } from '../admin/admin-audit.interceptor';
 import { MESSAGE_ATTACHMENT_POLICY } from '../storage/file-policy';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -27,6 +25,8 @@ import {
   UserThrottlerGuard,
 } from '../common/guards/user-throttler.guard';
 import { GetMessagesQueryDto } from './dto/get-messages.query.dto';
+import { getClientIp } from '../common/net/client-ip';
+import type { Request } from 'express';
 
 @UseGuards(JwtAuthGuard)
 @Controller('messages')
@@ -48,14 +48,17 @@ export class MessagesController {
   async createMessage(
     @Body() body: CreateMessageDTO,
     @CurrentUser() user: RequestUser,
-    @Ip() ip: string,
+    @Req() req: Request,
     @UploadedFiles() files: Express.Multer.File[] = [],
   ) {
     const message = await this.messagesService.sendMessage(
       body.roomId,
       user.userId,
       body.cipherText,
-      ip,
+      getClientIp(req, {
+        trustProxy: process.env.TRUST_PROXY,
+        trustedIpHeader: process.env.TRUSTED_IP_HEADER,
+      }),
       files,
     );
     this.messagesGateway.broadcastMessage(body.roomId, message);
@@ -69,14 +72,5 @@ export class MessagesController {
     @Query() query: GetMessagesQueryDto,
   ) {
     return this.messagesService.getRoomHistory(roomId, user.userId, query);
-  }
-
-  @UseInterceptors(AdminAuditInterceptor)
-  @Delete(':id')
-  async deleteMessage(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.messagesService.deleteMessage(id, user);
   }
 }

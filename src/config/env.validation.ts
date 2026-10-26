@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsOptional,
   IsString,
   Min,
   MinLength,
@@ -22,6 +23,9 @@ class EnvConfig {
     | 'test' = 'development';
   @IsString() @MinLength(1) DATABASE_URL!: string;
   @IsString() @MinLength(32) JWT_SECRET!: string;
+  @IsString() @MinLength(32) IP_TAG_SECRET!: string;
+  @IsOptional() @IsString() TRUST_PROXY?: string;
+  @IsOptional() @IsString() TRUSTED_IP_HEADER?: string;
   @IsString() @MinLength(1) CORS_ORIGINS!: string;
   @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace']) LOG_LEVEL =
     'info';
@@ -32,10 +36,10 @@ class EnvConfig {
   @IsInt()
   @Min(1)
   MINIO_PORT = 9000;
-  @IsString() MINIO_ACCESS_KEY = 'minioadmin';
-  @IsString() MINIO_SECRET_KEY = 'minioadmin';
+  @IsString() @MinLength(1) MINIO_ACCESS_KEY!: string;
+  @IsString() @MinLength(1) MINIO_SECRET_KEY!: string;
   @IsString() MINIO_BUCKET_NAME = 'chatix';
-  @IsString() MINIO_PUBLIC_URL = 'http://localhost:9000/chatix';
+  @IsString() MINIO_PUBLIC_URL = 'http://localhost:9000';
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   MINIO_USE_SSL = false;

@@ -1,9 +1,16 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, count } from 'drizzle-orm';
+import { eq, and, count, sql } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.module';
 import * as scheme from '../../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { CreateRoomDTO } from './dto/create-room.dto';
+
+export const CREATOR_COLUMNS = {
+  id: true,
+  username: true,
+  pfp_url: true,
+  forcedTitle: true,
+} as const;
 
 @Injectable()
 export class RoomsRepository {
@@ -48,13 +55,14 @@ export class RoomsRepository {
   async findById(roomId: string) {
     return this.db.query.rooms.findFirst({
       where: eq(scheme.rooms.id, roomId),
-      with: { creator: true },
+      with: { creator: { columns: CREATOR_COLUMNS } },
     });
   }
 
   async findRoomByName(roomName: string) {
     return this.db.query.rooms.findFirst({
-      where: eq(scheme.rooms.title, roomName),
+      where: sql`lower(${scheme.rooms.title}) = lower(${roomName})`,
+      with: { creator: { columns: CREATOR_COLUMNS } },
     });
   }
 
@@ -64,9 +72,17 @@ export class RoomsRepository {
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
       with: {
         creator: {
-          columns: { id: true, username: true, pfp_url: true },
+          columns: CREATOR_COLUMNS,
         },
       },
+    });
+  }
+
+  async findMine(creatorId: string) {
+    return this.db.query.rooms.findMany({
+      where: eq(scheme.rooms.creatorId, creatorId),
+      orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
+      with: { creator: { columns: CREATOR_COLUMNS } },
     });
   }
 
@@ -79,7 +95,7 @@ export class RoomsRepository {
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
       with: {
         creator: {
-          columns: { id: true, username: true, pfp_url: true },
+          columns: CREATOR_COLUMNS,
         },
       },
     });
@@ -94,7 +110,7 @@ export class RoomsRepository {
       orderBy: (rooms, { desc }) => [desc(rooms.createdAt)],
       with: {
         creator: {
-          columns: { id: true, username: true, pfp_url: true },
+          columns: CREATOR_COLUMNS,
         },
       },
     });
