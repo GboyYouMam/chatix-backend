@@ -1,6 +1,6 @@
 {
-  "id": "a8498516-e30d-4df7-8e31-74d10656cff8",
-  "prevId": "d70c0db6-88b0-47fc-a8f9-a7c4624b7766",
+  "id": "86c78f38-4b31-4144-9199-f49b62b1e95a",
+  "prevId": "6f9c6482-5aa1-4cfc-a33a-23e59cf050cb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -27,6 +27,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "action_key": {
+          "name": "action_key",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'legacy'"
+        },
         "method": {
           "name": "method",
           "type": "varchar(10)",
@@ -47,6 +54,12 @@
         },
         "target_id": {
           "name": "target_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_label": {
+          "name": "target_label",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
@@ -119,6 +132,33 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "admin_audit_logs_target_timeline_idx": {
+          "name": "admin_audit_logs_target_timeline_idx",
+          "columns": [
+            {
+              "expression": "target_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -126,8 +166,12 @@
           "name": "admin_audit_logs_admin_id_users_id_fk",
           "tableFrom": "admin_audit_logs",
           "tableTo": "users",
-          "columnsFrom": ["admin_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "admin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -264,8 +308,12 @@
           "name": "fights_player1_id_users_id_fk",
           "tableFrom": "fights",
           "tableTo": "users",
-          "columnsFrom": ["player1_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "player1_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -273,8 +321,12 @@
           "name": "fights_player2_id_users_id_fk",
           "tableFrom": "fights",
           "tableTo": "users",
-          "columnsFrom": ["player2_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "player2_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -282,8 +334,12 @@
           "name": "fights_winner_id_users_id_fk",
           "tableFrom": "fights",
           "tableTo": "users",
-          "columnsFrom": ["winner_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "winner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -365,8 +421,12 @@
           "name": "message_attachments_message_id_messages_id_fk",
           "tableFrom": "message_attachments",
           "tableTo": "messages",
-          "columnsFrom": ["message_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "message_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -473,8 +533,12 @@
           "name": "messages_room_id_rooms_id_fk",
           "tableFrom": "messages",
           "tableTo": "rooms",
-          "columnsFrom": ["room_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -482,8 +546,12 @@
           "name": "messages_author_id_users_id_fk",
           "tableFrom": "messages",
           "tableTo": "users",
-          "columnsFrom": ["author_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -587,8 +655,12 @@
           "name": "profile_comments_profile_user_id_users_id_fk",
           "tableFrom": "profile_comments",
           "tableTo": "users",
-          "columnsFrom": ["profile_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "profile_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -596,8 +668,12 @@
           "name": "profile_comments_author_id_users_id_fk",
           "tableFrom": "profile_comments",
           "tableTo": "users",
-          "columnsFrom": ["author_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -660,8 +736,12 @@
           "name": "profile_respects_profile_user_id_users_id_fk",
           "tableFrom": "profile_respects",
           "tableTo": "users",
-          "columnsFrom": ["profile_user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "profile_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -669,8 +749,12 @@
           "name": "profile_respects_admirer_id_users_id_fk",
           "tableFrom": "profile_respects",
           "tableTo": "users",
-          "columnsFrom": ["admirer_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "admirer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -678,7 +762,10 @@
       "compositePrimaryKeys": {
         "profile_respects_profile_user_id_admirer_id_pk": {
           "name": "profile_respects_profile_user_id_admirer_id_pk",
-          "columns": ["profile_user_id", "admirer_id"]
+          "columns": [
+            "profile_user_id",
+            "admirer_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -716,8 +803,12 @@
           "name": "room_accesses_room_id_rooms_id_fk",
           "tableFrom": "room_accesses",
           "tableTo": "rooms",
-          "columnsFrom": ["room_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -725,8 +816,12 @@
           "name": "room_accesses_user_id_users_id_fk",
           "tableFrom": "room_accesses",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -734,7 +829,10 @@
       "compositePrimaryKeys": {
         "room_accesses_room_id_user_id_pk": {
           "name": "room_accesses_room_id_user_id_pk",
-          "columns": ["room_id", "user_id"]
+          "columns": [
+            "room_id",
+            "user_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -842,8 +940,12 @@
           "name": "rooms_creator_id_users_id_fk",
           "tableFrom": "rooms",
           "tableTo": "users",
-          "columnsFrom": ["creator_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "creator_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -900,8 +1002,12 @@
           "name": "user_achievements_user_id_users_id_fk",
           "tableFrom": "user_achievements",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -909,7 +1015,10 @@
       "compositePrimaryKeys": {
         "user_achievements_user_id_key_pk": {
           "name": "user_achievements_user_id_key_pk",
-          "columns": ["user_id", "key"]
+          "columns": [
+            "user_id",
+            "key"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -988,8 +1097,12 @@
           "name": "user_warnings_user_id_users_id_fk",
           "tableFrom": "user_warnings",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -997,8 +1110,12 @@
           "name": "user_warnings_admin_id_users_id_fk",
           "tableFrom": "user_warnings",
           "tableTo": "users",
-          "columnsFrom": ["admin_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "admin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1271,7 +1388,9 @@
         "users_username_unique": {
           "name": "users_username_unique",
           "nullsNotDistinct": false,
-          "columns": ["username"]
+          "columns": [
+            "username"
+          ]
         }
       },
       "policies": {},
@@ -1283,22 +1402,38 @@
     "public.fight_outcome": {
       "name": "fight_outcome",
       "schema": "public",
-      "values": ["ko", "rage_quit", "cancelled"]
+      "values": [
+        "ko",
+        "rage_quit",
+        "cancelled"
+      ]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": ["user", "admin"]
+      "values": [
+        "user",
+        "admin"
+      ]
     },
     "public.room_publicity": {
       "name": "room_publicity",
       "schema": "public",
-      "values": ["public", "private"]
+      "values": [
+        "public",
+        "private"
+      ]
     },
     "public.room_state": {
       "name": "room_state",
       "schema": "public",
-      "values": ["active", "checkout", "banned", "quarantined", "rejected"]
+      "values": [
+        "active",
+        "checkout",
+        "banned",
+        "quarantined",
+        "rejected"
+      ]
     }
   },
   "schemas": {},

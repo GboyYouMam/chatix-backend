@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsInt,
+  IsIn,
   IsOptional,
   IsString,
   Max,
@@ -26,4 +27,18 @@ export class AdminPaginationDTO {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  room?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  user?: string;
+
+  @IsOptional()
+  @IsIn(['active', 'checkout', 'banned', 'quarantined', 'rejected'])
+  status?: string;
 }

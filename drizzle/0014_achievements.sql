@@ -17,6 +17,7 @@ CREATE TABLE "user_achievements" (
 	CONSTRAINT "user_achievements_user_id_key_pk" PRIMARY KEY("user_id","key")
 );
 --> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "debt_paid_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "featured_achievements" text[] DEFAULT '{}' NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "timezone" varchar(64);--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "messages_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
@@ -28,7 +29,6 @@ ALTER TABLE "users" ADD COLUMN "loss_streak" integer DEFAULT 0 NOT NULL;--> stat
 ALTER TABLE "users" ADD COLUMN "last_seen_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "fight_title" varchar(50);--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "fight_title_until" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "debt_paid_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE "fights" ADD CONSTRAINT "fights_player1_id_users_id_fk" FOREIGN KEY ("player1_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fights" ADD CONSTRAINT "fights_player2_id_users_id_fk" FOREIGN KEY ("player2_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fights" ADD CONSTRAINT "fights_winner_id_users_id_fk" FOREIGN KEY ("winner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint

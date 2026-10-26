@@ -4,9 +4,12 @@ import {
   count,
   desc,
   eq,
+  gt,
+  gte,
   ilike,
   inArray,
   isNull,
+  lte,
   or,
   sql,
 } from 'drizzle-orm';
@@ -19,15 +22,25 @@ export interface AdminPageOptions {
   page: number;
   limit: number;
   search?: string;
+  status?: string;
+  adminId?: string;
+  actionKey?: string;
+  targetType?: string;
+  targetId?: string;
+  success?: boolean;
+  from?: Date;
+  to?: Date;
 }
 
 export interface CreateAuditLogData {
   adminId?: string;
   action: string;
+  actionKey: string;
   method: string;
   path: string;
   targetType?: string;
   targetId?: string;
+  targetLabel?: string;
   statusCode: number;
   success: boolean;
   durationMs: number;
@@ -51,6 +64,39 @@ export class AdminRepository {
     return this.db.query.rooms.findFirst({
       where: eq(scheme.rooms.id, roomId),
     });
+  }
+
+  async dashboardStats() {
+    const now = new Date();
+    const dayStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const weekStart = new Date(dayStart);
+    weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
+    const [rooms, bans, warns, autobans] = await Promise.all([
+      this.db
+        .select({ total: count() })
+        .from(scheme.rooms)
+        .where(eq(scheme.rooms.status, 'checkout')),
+      this.db
+        .select({ total: count() })
+        .from(scheme.users)
+        .where(gt(scheme.users.bannedUntil, now)),
+      this.db
+        .select({ total: count() })
+        .from(scheme.userWarnings)
+        .where(gte(scheme.userWarnings.createdAt, dayStart)),
+      this.db
+        .select({ total: count() })
+        .from(scheme.users)
+        .where(gte(scheme.users.autoBannedAt, weekStart)),
+    ]);
+    return {
+      roomsInReview: rooms[0].total,
+      activeBans: bans[0].total,
+      warnsToday: warns[0].total,
+      autobansThisWeek: autobans[0].total,
+    };
   }
 
   async countActiveWarnings(userIds: string[]) {
@@ -89,6 +135,19 @@ export class AdminRepository {
     const [room] = await this.db
       .update(scheme.rooms)
       .set({ status: 'active', statusReason: null })
+      .where(eq(scheme.rooms.id, roomId))
+      .returning();
+    return room;
+  }
+
+  async updateRoomState(
+    roomId: string,
+    status: 'active' | 'rejected',
+    statusReason: string | null,
+  ) {
+    const [room] = await this.db
+      .update(scheme.rooms)
+      .set({ status, statusReason })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
     return room;
@@ -233,12 +292,25 @@ export class AdminRepository {
   }
 
   async findRooms(options: AdminPageOptions) {
-    const where = options.search
-      ? or(
-          ilike(scheme.rooms.title, `%${options.search}%`),
-          ilike(scheme.rooms.topic, `%${options.search}%`),
-        )
-      : undefined;
+    const where = and(
+      options.status
+        ? eq(
+            scheme.rooms.status,
+            options.status as
+              | 'active'
+              | 'checkout'
+              | 'banned'
+              | 'quarantined'
+              | 'rejected',
+          )
+        : undefined,
+      options.search
+        ? or(
+            ilike(scheme.rooms.title, `%${options.search}%`),
+            ilike(scheme.rooms.topic, `%${options.search}%`),
+          )
+        : undefined,
+    );
     const [items, [{ total }]] = await Promise.all([
       this.db.query.rooms.findMany({
         where,
@@ -252,23 +324,68 @@ export class AdminRepository {
     return { items, total };
   }
 
-  async findMessages(options: AdminPageOptions) {
-    const where = options.search
-      ? ilike(scheme.messages.cipherText, `%${options.search}%`)
-      : undefined;
-    const [items, [{ total }]] = await Promise.all([
-      this.db.query.messages.findMany({
-        where,
-        orderBy: [desc(scheme.messages.createdAt)],
-        limit: options.limit,
-        offset: (options.page - 1) * options.limit,
-        with: {
-          author: { columns: { id: true, username: true, isMogged: true } },
-          room: { columns: { id: true, title: true } },
-        },
-      }),
-      this.db.select({ total: count() }).from(scheme.messages).where(where),
+  async findMessages(
+    options: AdminPageOptions & {
+      room?: string;
+      user?: string;
+      authorId?: string;
+    },
+  ) {
+    const where = and(
+      options.search
+        ? ilike(scheme.messages.cipherText, `%${options.search}%`)
+        : undefined,
+      options.room ? ilike(scheme.rooms.title, `%${options.room}%`) : undefined,
+      options.user
+        ? ilike(scheme.users.username, `%${options.user}%`)
+        : undefined,
+      options.authorId
+        ? eq(scheme.messages.authorId, options.authorId)
+        : undefined,
+    );
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          message: scheme.messages,
+          author: scheme.users,
+          room: scheme.rooms,
+        })
+        .from(scheme.messages)
+        .innerJoin(scheme.users, eq(scheme.users.id, scheme.messages.authorId))
+        .innerJoin(scheme.rooms, eq(scheme.rooms.id, scheme.messages.roomId))
+        .where(where)
+        .orderBy(desc(scheme.messages.createdAt))
+        .limit(options.limit)
+        .offset((options.page - 1) * options.limit),
+      this.db
+        .select({ total: count() })
+        .from(scheme.messages)
+        .innerJoin(scheme.users, eq(scheme.users.id, scheme.messages.authorId))
+        .innerJoin(scheme.rooms, eq(scheme.rooms.id, scheme.messages.roomId))
+        .where(where),
     ]);
+    const attachmentRows = rows.length
+      ? await this.db.query.messageAttachments.findMany({
+          where: inArray(
+            scheme.messageAttachments.messageId,
+            rows.map(({ message }) => message.id),
+          ),
+        })
+      : [];
+    const items = rows.map(({ message, author, room }) => ({
+      ...message,
+      author: {
+        id: author.id,
+        username: author.username,
+        pfp_url: author.pfp_url,
+        forcedTitle: author.forcedTitle,
+        isMogged: author.isMogged,
+      },
+      room: { id: room.id, title: room.title },
+      attachments: attachmentRows.filter(
+        (attachment) => attachment.messageId === message.id,
+      ),
+    }));
     return { items, total };
   }
 
@@ -305,13 +422,34 @@ export class AdminRepository {
   }
 
   async findAuditLogs(options: AdminPageOptions) {
-    const where = options.search
-      ? or(
-          ilike(scheme.adminAuditLogs.action, `%${options.search}%`),
-          ilike(scheme.adminAuditLogs.path, `%${options.search}%`),
-          ilike(scheme.adminAuditLogs.targetId, `%${options.search}%`),
-        )
-      : undefined;
+    const where = and(
+      options.search
+        ? or(
+            ilike(scheme.adminAuditLogs.action, `%${options.search}%`),
+            ilike(scheme.adminAuditLogs.path, `%${options.search}%`),
+            ilike(scheme.adminAuditLogs.targetId, `%${options.search}%`),
+          )
+        : undefined,
+      options.adminId
+        ? eq(scheme.adminAuditLogs.adminId, options.adminId)
+        : undefined,
+      options.actionKey
+        ? eq(scheme.adminAuditLogs.actionKey, options.actionKey)
+        : undefined,
+      options.targetType
+        ? eq(scheme.adminAuditLogs.targetType, options.targetType)
+        : undefined,
+      options.targetId
+        ? eq(scheme.adminAuditLogs.targetId, options.targetId)
+        : undefined,
+      options.success !== undefined
+        ? eq(scheme.adminAuditLogs.success, options.success)
+        : undefined,
+      options.from
+        ? gte(scheme.adminAuditLogs.createdAt, options.from)
+        : undefined,
+      options.to ? lte(scheme.adminAuditLogs.createdAt, options.to) : undefined,
+    );
     const [items, [{ total }]] = await Promise.all([
       this.db.query.adminAuditLogs.findMany({
         where,
@@ -326,5 +464,25 @@ export class AdminRepository {
         .where(where),
     ]);
     return { items, total };
+  }
+
+  async findUserIps(userId: string) {
+    const rows = await this.db
+      .select({
+        ip: scheme.messages.ipAddress,
+        lastSeenAt: sql<Date>`max(${scheme.messages.createdAt})`,
+        messages: count(),
+      })
+      .from(scheme.messages)
+      .where(
+        and(
+          eq(scheme.messages.authorId, userId),
+          sql`${scheme.messages.ipAddress} IS NOT NULL`,
+        ),
+      )
+      .groupBy(scheme.messages.ipAddress)
+      .orderBy(desc(sql`max(${scheme.messages.createdAt})`))
+      .limit(20);
+    return rows;
   }
 }

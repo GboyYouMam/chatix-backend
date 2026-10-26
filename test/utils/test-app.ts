@@ -24,6 +24,7 @@ export async function createTestApp(): Promise<{
   const url = process.env.DATABASE_URL_TEST;
   if (!url) throw new Error('DATABASE_URL_TEST is required to run e2e tests');
   process.env.DATABASE_URL = url;
+  process.env.TRUST_PROXY ??= '1';
   const connection = postgres(url);
   const db = drizzle(connection, { schema });
   await migrate(db, { migrationsFolder: './drizzle' });
@@ -54,7 +55,8 @@ export async function registerAndLogin(
   username: string,
   password: string,
 ) {
-  const testIp = `198.51.100.${testIpSequence++}`;
+  const sequence = testIpSequence++ - 1;
+  const testIp = `198.18.${Math.floor(sequence / 256)}.${sequence % 256}`;
   await request(app.getHttpServer())
     .post('/auth/register')
     .set('x-forwarded-for', testIp)

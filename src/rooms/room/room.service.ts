@@ -11,6 +11,7 @@ import { UpdateRoomPublicityDto } from './dto/update-room-publicity.dto';
 import { toPublicRoom } from './room.serializer';
 import { RoomsRepository } from './rooms.repository';
 import { AchievementsService } from '../../achievements/achievements.service';
+import { AdminAuditContext } from '../../admin/audit-context';
 
 @Injectable()
 export class RoomService {
@@ -18,6 +19,7 @@ export class RoomService {
     private readonly roomsRepository: RoomsRepository,
     private readonly realtime: RealtimeService,
     private readonly achievements: AchievementsService,
+    private readonly auditContext: AdminAuditContext,
   ) {}
 
   private isRoomNameConflict(error: unknown): boolean {
@@ -189,6 +191,11 @@ export class RoomService {
       } else if (newStatus === 'quarantined') {
         await this.achievements.grantSafely(existing.creatorId, 'ratio_d');
       }
+      this.auditContext.setTarget(room.title, roomId);
+      this.auditContext.setDiff(
+        { status: existing.status, statusReason: existing.statusReason },
+        { status: room.status, statusReason: room.statusReason },
+      );
       const quarantined = newStatus === 'quarantined';
       this.realtime.emitToRoom(roomId, 'roomQuarantined', {
         roomId,

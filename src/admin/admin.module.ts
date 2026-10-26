@@ -11,6 +11,7 @@ import { AdminActivityLogger } from './admin-activity-logger.service';
 import { AdminAuditInterceptor } from './admin-audit.interceptor';
 import { AuthModule } from '../auth/auth.module';
 import { AchievementsModule } from '../achievements/achievements.module';
+import { AdminAuditContext } from './audit-context';
 
 @Global()
 @Module({
@@ -28,7 +29,8 @@ import { AchievementsModule } from '../achievements/achievements.module';
     AdminGateway,
     AdminActivityLogger,
     AdminAuditInterceptor,
+    AdminAuditContext,
   ],
-  exports: [AdminAuditInterceptor, AdminActivityLogger],
+  exports: [AdminAuditInterceptor, AdminActivityLogger, AdminAuditContext],
 })
 export class AdminModule {}
