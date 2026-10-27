@@ -1,117 +1,109 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# chatix-backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The server half of **Chatix**, a multi-user, imageboard-style chat with an edge, trolling attitude. Users talk in public and password-protected rooms. They farm and lose **aura**, and they fight each other in a hidden real-time **fight club** (a keyboard QTE duel). Aura buys cosmetics, troll items and room themes in the **laryok shop**, and the killsquad admins moderate everything from their own panel.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The frontend lives in a separate repo: [chatix-frontend](https://github.com/GboyYouMam/chatix-frontend).
 
-## Description
+## Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| Layer | Choice |
+| --- | --- |
+| Language | TypeScript 5 (Node.js 24) |
+| Framework | NestJS 11 (Express platform) |
+| Realtime | Socket.IO 4 through `@nestjs/websockets` |
+| Database | PostgreSQL 15 + Drizzle ORM 0.45 (SQL migrations in `drizzle/`) |
+| File storage | MinIO (S3-compatible object storage) |
+| Auth | JWT (`@nestjs/jwt`, `passport-jwt`), bcrypt password hashes |
+| Logging | `nestjs-pino` (structured JSON, request ids, secret redaction) |
+| Tests | Jest 30 + Supertest + socket.io-client (unit and e2e) |
 
-## Project setup
+## Features
 
-```bash
-$ npm install
+- **Auth.** Registration and login with strong password rules. Every request re-validates the JWT against the database through `tokenVersion`, so a ban or a logout everywhere takes effect immediately.
+- **Rooms.**
+  - Public and private rooms; private-room passwords are bcrypt-hashed.
+  - Room names are unique case-insensitively.
+  - New rooms start in moderation (`checkout`); after that a room can be `active`, `quarantined`, `banned` or `rejected`, each with a reason.
+  - Seven room themes.
+- **Messages.**
+  - Real-time delivery over Socket.IO, with cursor pagination for history.
+  - Up to 5 attachments per message, each checked by its real file signature, not by the declared MIME type.
+  - Imageboard-style IP tags: the last block of the IP is replaced by a short HMAC, so it can never be read back.
+- **Fight club.** A hidden lobby of 1v1 duels with an aura or debt stake.
+  - The server runs the whole duel: it generates the prompts and checks reaction time, cooldowns and stuns.
+  - It flags bot-like hit cadence and settles stakes in one transaction.
+- **Economy.**
+  - The aura balance can be farmed without limit; debt can go negative, which works as a "financial cushion".
+  - Daily stimulus, plus a weekly leaderboard (weeks start Monday, UTC).
+  - The **laryok shop** sells cosmetics, consumable troll items and themes. Every purchase is an atomic conditional update under a row lock.
+- **Profiles.**
+  - 13 widgets, including a Spotify/SoundCloud player, an aura chart, a guestbook and a hit counter.
+  - Achievements are shown as SVG military medals.
+- **Moderation.**
+  - Warnings, with an automatic ban after three active ones; mutes ("yap cooldown"), clown mode and admin glaze mode.
+  - An audit log of every admin action, and live admin updates over the `/admin` socket namespace.
+- **Hardening.**
+  - `helmet`, a CORS allowlist and global validation (`whitelist` + `forbidNonWhitelisted`).
+  - Per-user rate limiting, with stricter limits on auth.
+  - Proxy-aware client IPs and global HTTP/WS exception filters.
+
+## Project layout
+
+```
+src/
+  auth/          JWT strategy, guards, socket auth middleware
+  users/         profiles, comments, respects
+  rooms/room/    rooms, access, themes, moderation states
+  messages/      REST + gateway, serializer, attachments
+  fight-club/    lobby, duel engine, settlement
+  shop/          catalog, purchases, cosmetics, consumables, effects
+  economy/       stimulus, leaderboard
+  widgets/       profile widgets, track URLs, aura history
+  achievements/  catalog and granting
+  admin/         admin API, audit interceptor, autoban, admin gateway
+  realtime/      user rooms and broadcast helpers
+  storage/       MinIO client and file policy
+  common/        filters, guards, pipes, client IP, IP tags
+  config/        environment validation
+  database/      Drizzle schema and module
+drizzle/         generated SQL migrations
+test/            e2e suites (each runs against its own test database)
 ```
 
-## Local development
+## Getting started
 
-Copy `.env.example` to `.env` and adjust its values if needed. The repository
-already includes a local `.env` configured for the Compose services.
-
-With Docker Desktop running, start Postgres and MinIO, then apply migrations:
+Requirements: Node.js 24+, Docker Desktop.
 
 ```bash
-$ docker compose up -d
-$ npm run db:migrate
+cp .env.example .env        # then set JWT_SECRET, IP_TAG_SECRET, MinIO password
+docker compose up -d        # PostgreSQL on :5433, MinIO on :9000 (console :9001)
+npm ci
+npm run db:migrate          # apply all migrations
+npm run start:dev           # API on http://localhost:3000
 ```
 
-Start the API with `npm run start:dev`. The frontend uses its own `.env` with
-`VITE_API_URL=http://localhost:3000` and runs with `npm run dev`.
+On Windows, `start-chatix.cmd` (one folder up) starts Docker, the database, the migrations, the backend and the frontend in one click.
 
-## Compile and run the project
+### Environment
 
-```bash
-# development
-$ npm run start
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | signing key for access tokens |
+| `IP_TAG_SECRET` | HMAC key for masked IP tags (32+ chars) |
+| `CORS_ORIGINS` | comma-separated list of allowed frontend origins |
+| `MINIO_*` | object storage endpoint, credentials, bucket, public URL |
+| `TRUST_PROXY`, `TRUSTED_IP_HEADER` | real client IP behind a proxy or CDN |
+| `LOG_LEVEL`, `NODE_ENV` | logging verbosity and pretty output in development |
 
-# watch mode
-$ npm run start:dev
+## Scripts
 
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-
-## Tests
-
-Run unit tests with `npx jest`. E2E tests require a disposable PostgreSQL database in `DATABASE_URL_TEST`; they apply the repository migrations and truncate its tables between tests. Set this variable only to a dedicated test database.
+| Command | What it does |
+| --- | --- |
+| `npm run start:dev` | dev server with watch mode |
+| `npm run build` / `npm run start:prod` | production build and run (`node dist/main`) |
+| `npm run db:generate` | generate a migration from schema changes |
+| `npm run db:migrate` | apply migrations |
+| `npm test` | unit tests |
+| `npm run test:e2e` | end-to-end tests (needs `DATABASE_URL_TEST`) |
+| `npm run lint` | ESLint |
