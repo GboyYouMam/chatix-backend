@@ -90,12 +90,12 @@ suite('shop (e2e)', () => {
       'double_clicker',
       'StrongPass1!',
     );
-    // Exactly the nyan cat price: a double charge would surface as BROKE, not 409.
-    await setAura(userId, 2500);
+    // Exactly the accent_magenta price: a double charge would surface as BROKE, not 409.
+    await setAura(userId, 400);
 
     const responses = await Promise.all([
-      purchase(token, 'nyan_cat'),
-      purchase(token, 'nyan_cat'),
+      purchase(token, 'accent_magenta'),
+      purchase(token, 'accent_magenta'),
     ]);
 
     const statuses = responses.map((response) => response.status).sort();

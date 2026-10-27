@@ -225,11 +225,15 @@ export class UsersRepository {
       : undefined;
   }
 
-  async findProfileComments(profileUserId: string, limit = 50) {
+  async findProfileComments(profileUserId: string, limit = 50, offset = 0) {
     return this.db.query.profileComments.findMany({
       where: eq(scheme.profileComments.profileUserId, profileUserId),
-      orderBy: [desc(scheme.profileComments.createdAt)],
+      orderBy: [
+        desc(scheme.profileComments.createdAt),
+        desc(scheme.profileComments.id),
+      ],
       limit,
+      offset,
       with: {
         author: {
           columns: {
@@ -240,6 +244,15 @@ export class UsersRepository {
         },
       },
     });
+  }
+
+  async countProfileComments(profileUserId: string) {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(scheme.profileComments)
+      .where(eq(scheme.profileComments.profileUserId, profileUserId));
+
+    return total;
   }
 
   async createProfileComment(

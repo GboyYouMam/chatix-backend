@@ -58,7 +58,7 @@ suite('widgets (e2e)', () => {
     await patchLayout(token, ['medal_rack', 'medal_rack']).expect(400);
   });
 
-  it('locks hit_counter and sticker_board until the shop item is owned', async () => {
+  it('locks hit_counter until the shop item is owned', async () => {
     const { token, userId } = await registerAndLogin(
       app,
       'layout_locked',
@@ -70,11 +70,10 @@ suite('widgets (e2e)', () => {
 
     await db.insert(schema.userInventory).values({
       userId,
-      itemKey: 'sticker_soap',
+      itemKey: 'hit_counter',
       quantity: 1,
     });
-    await patchLayout(token, ['sticker_board']).expect(200);
-    await patchLayout(token, ['hit_counter']).expect(403);
+    await patchLayout(token, ['hit_counter']).expect(200);
   });
 
   it('forces rap_sheet on when the user has an active warning', async () => {

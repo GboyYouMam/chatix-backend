@@ -54,6 +54,49 @@ suite('Users security and warnings (e2e)', () => {
     expect(profile.activeWarnings[0]).not.toHaveProperty('adminId');
   });
 
+  it('paginates profile comments newest first', async () => {
+    const base = Date.now();
+    await db.insert(schema.profileComments).values(
+      Array.from({ length: 12 }, (_, index) => ({
+        profileUserId: userId,
+        authorId: userId,
+        body: `comment ${index + 1}`,
+        createdAt: new Date(base + index * 1000),
+      })),
+    );
+
+    const first = await request(app.getHttpServer())
+      .get('/users/profile/profile_user/comments?page=1&limit=10')
+      .set('Authorization', 'Bearer ' + token)
+      .expect(200);
+    const firstBody = first.body as {
+      items: { body: string }[];
+      page: number;
+      limit: number;
+      total: number;
+    };
+    expect(firstBody.items).toHaveLength(10);
+    expect(firstBody.items[0].body).toBe('comment 12');
+    expect(firstBody).toMatchObject({ page: 1, limit: 10, total: 12 });
+
+    const second = await request(app.getHttpServer())
+      .get('/users/profile/profile_user/comments?page=2&limit=10')
+      .set('Authorization', 'Bearer ' + token)
+      .expect(200);
+    const secondBody = second.body as {
+      items: { body: string }[];
+      total: number;
+    };
+    expect(secondBody.items).toHaveLength(2);
+    expect(secondBody.items[1].body).toBe('comment 1');
+    expect(secondBody.total).toBe(12);
+
+    await request(app.getHttpServer())
+      .get('/users/profile/profile_user/comments?limit=51')
+      .set('Authorization', 'Bearer ' + token)
+      .expect(400);
+  });
+
   it('applies concurrent aura farming increments without lost updates', async () => {
     const [before] = await db
       .select({ aura: schema.users.aura })

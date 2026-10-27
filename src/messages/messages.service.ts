@@ -102,14 +102,14 @@ export class MessagesService {
 
     if (user.adminGlazeMode) {
       const glazeQuotes = [
-        'i fully support the decision of our magnificent killsquad administration! ??????',
-        'god bless our admins, grant them good health. i love them, and i thank them. ??????',
-        'i wanna give all my lifesavings to the killsquad administration. they deserve it! ??????',
+        'i fully support the decision of our magnificent killsquad administration! 🙏🙏🙏🙏',
+        'god bless our admins, grant them good health. i love them, and i thank them. 🙏🙏🙏🙏🙏🙏',
+        'i wanna give all my lifesavings to the killsquad administration. they deserve it! 🙏🙏🙏🙏🙏🙏',
       ];
       finalMessageText =
         glazeQuotes[Math.floor(Math.random() * glazeQuotes.length)];
     } else if (user.isClown) {
-      finalMessageText = 'well ugh actually ' + finalMessageText + ' ??????';
+      finalMessageText = 'well ugh actually ' + finalMessageText + ' 🤓☝️🤡';
     }
 
     const uploadedUrls: string[] = [];

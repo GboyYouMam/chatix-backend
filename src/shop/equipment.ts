@@ -7,11 +7,7 @@ export const EQUIP_SLOTS = [
   'nameColor',
   'nameIcon',
   'quoteStyle',
-  'nyanCat',
   'verified',
-  'sticker1',
-  'sticker2',
-  'sticker3',
 ] as const;
 
 export type EquipSlot = (typeof EQUIP_SLOTS)[number];
@@ -26,11 +22,7 @@ const SLOT_ACCEPTS: Record<EquipSlot, (itemKey: string) => boolean> = {
   nameColor: (key) => key.startsWith('namecolor_'),
   nameIcon: (key) => key.startsWith('nameicon_'),
   quoteStyle: (key) => key.startsWith('quote_'),
-  nyanCat: (key) => key === 'nyan_cat',
   verified: (key) => key === 'verified_chud',
-  sticker1: (key) => key.startsWith('sticker_'),
-  sticker2: (key) => key.startsWith('sticker_'),
-  sticker3: (key) => key.startsWith('sticker_'),
 };
 
 export function slotAccepts(slot: EquipSlot, itemKey: string): boolean {
@@ -48,9 +40,7 @@ export interface EquippedState {
   nameColor: string | null;
   nameIcon: string | null;
   quoteStyle: string | null;
-  nyanCat: boolean;
   verified: boolean;
-  stickers: [string | null, string | null, string | null];
 }
 
 type EquippedRow = Pick<typeof userEquipped.$inferSelect, 'slot' | 'itemKey'>;
@@ -65,8 +55,6 @@ export function equippedFromRows(rows: EquippedRow[]): EquippedState {
     nameColor: get('nameColor'),
     nameIcon: get('nameIcon'),
     quoteStyle: get('quoteStyle'),
-    nyanCat: bySlot.has('nyanCat'),
     verified: bySlot.has('verified'),
-    stickers: [get('sticker1'), get('sticker2'), get('sticker3')],
   };
 }

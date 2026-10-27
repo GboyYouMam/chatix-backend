@@ -90,13 +90,6 @@ const theme = (
 export const SHOP_ITEMS: readonly ShopItem[] = [
   // profile
   profile(
-    'nyan_cat',
-    'nyan cat',
-    'a cat made of pop-tart orbits your name. peak.',
-    'permanent',
-    2500,
-  ),
-  profile(
     'accent_magenta',
     'magenta accent',
     'louder than your last take.',
@@ -221,41 +214,6 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
     'booms at whoever clicks it. no refunds on the boom.',
     'permanent',
     350,
-  ),
-  profile(
-    'sticker_soap',
-    'soap sticker',
-    'banner sticker. owning any sticker unlocks the sticker board.',
-    'permanent',
-    150,
-  ),
-  profile(
-    'sticker_skull',
-    'skull sticker',
-    'for when your takes are dead on arrival.',
-    'permanent',
-    150,
-  ),
-  profile(
-    'sticker_killsquad',
-    'approved by killsquad',
-    'nobody verified this. it looks official anyway.',
-    'permanent',
-    150,
-  ),
-  profile(
-    'sticker_clown',
-    'clown sticker',
-    'certified clown. the clown certified you.',
-    'permanent',
-    150,
-  ),
-  profile(
-    'sticker_crown',
-    'crown sticker',
-    'king energy. self-appointed.',
-    'permanent',
-    150,
   ),
   // chat
   chat(
@@ -447,9 +405,9 @@ const keysStartingWith = (prefixes: string[]): string[] =>
   ).map((item) => item.key);
 
 export const MYSTERY_SOAP_POOLS = {
-  common: keysStartingWith(['sticker_', 'quote_', 'title_']),
+  common: keysStartingWith(['quote_', 'title_']),
   rare: keysStartingWith(['bg_', 'nameicon_', 'accent_', 'namecolor_']),
-  legendary: ['nyan_cat', 'verified_chud'],
+  legendary: ['verified_chud'],
 } as const;
 
 export function findShopItem(key: string): ShopItem | undefined {
