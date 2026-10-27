@@ -24,7 +24,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'touched the aura tree once. it noticed.',
     'aura',
     'bronze',
-    '🌱',
+    'star',
   ],
   [
     'aura_farmer',
@@ -32,7 +32,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'farm aura 1,000 times. the tree knows your name.',
     'aura',
     'silver',
-    '🚜',
+    'star',
   ],
   [
     'aura_god',
@@ -40,7 +40,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'reach 10,000 aura. mortals kneel. we kneel too.',
     'aura',
     'gold',
-    '✨',
+    'star',
   ],
   [
     'in_the_negatives',
@@ -48,7 +48,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'drop below zero aura. the vibes are doing numbers.',
     'aura',
     'shame',
-    '📉',
+    'star',
   ],
   [
     'bankrupt_vibes',
@@ -56,7 +56,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'reach -1,000 aura. the aura bank filed for chapter 11.',
     'aura',
     'shame',
-    '🪦',
+    'star',
   ],
   [
     'first_debt',
@@ -64,7 +64,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'owe aura for the first time. welcome to the red, chud.',
     'debt',
     'bronze',
-    '🧾',
+    'shield',
   ],
   [
     'debt_free',
@@ -72,7 +72,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'pay off at least 100 debt. look at you, accountable.',
     'debt',
     'silver',
-    '🕊️',
+    'shield',
   ],
   [
     'debt_lord',
@@ -80,7 +80,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'reach 1,000 debt. the bank sends you fan mail.',
     'debt',
     'gold',
-    '👑',
+    'shield',
   ],
   [
     'financial_cushion',
@@ -88,7 +88,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'debt below zero. the bank owes YOU now, king.',
     'debt',
     'silver',
-    '🛟',
+    'shield',
   ],
   [
     'loan_shark',
@@ -96,7 +96,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'reach -1,000 debt. you are the bank now. sleep well.',
     'debt',
     'gold',
-    '🦈',
+    'shield',
   ],
   [
     'found_the_basement',
@@ -104,7 +104,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'the stairs go down further than you think.',
     'secret',
     'secret',
-    '🕳️',
+    'eye',
   ],
   [
     'first_blood',
@@ -112,7 +112,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'win your first fight. the basement has a new champ.',
     'fight',
     'bronze',
-    '🥊',
+    'cross',
   ],
   [
     'basement_regular',
@@ -120,7 +120,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'finish 10 fights. the bartender knows your order.',
     'fight',
     'silver',
-    '🥋',
+    'cross',
   ],
   [
     'undefeated',
@@ -128,7 +128,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'win 5 fights in a row. nobody laid a finger on you.',
     'fight',
     'gold',
-    '🏆',
+    'cross',
   ],
   [
     'high_roller',
@@ -136,7 +136,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'stake at least 500 on a fight. mom said no.',
     'fight',
     'gold',
-    '🎰',
+    'cross',
   ],
   [
     'rage_quitter',
@@ -144,7 +144,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'alt+f4 is not a combo move.',
     'fight',
     'shame',
-    '🏃',
+    'cross',
   ],
   [
     'professionally_mogged',
@@ -152,7 +152,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'lose 10 fights in a row. the mog was documented.',
     'fight',
     'shame',
-    '🫠',
+    'cross',
   ],
   [
     'the_soap_market',
@@ -160,7 +160,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'finish 3 fights in an hour. the soap cartel salutes you.',
     'fight',
     'silver',
-    '🧼',
+    'cross',
   ],
   [
     'got_mogged_by_a_clown',
@@ -168,7 +168,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'lose a fight to a clown. honk. humbling.',
     'fight',
     'shame',
-    '🎪',
+    'cross',
   ],
   [
     'landlord',
@@ -176,7 +176,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'get your first room approved. slumlord energy unlocked.',
     'rooms',
     'bronze',
-    '🏠',
+    'laurel',
   ],
   [
     'yapper',
@@ -184,7 +184,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'send 100 messages. you have not stopped talking.',
     'rooms',
     'bronze',
-    '💬',
+    'laurel',
   ],
   [
     'certified_yapper',
@@ -192,7 +192,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'send 1,000 messages. the keyboard filed a complaint.',
     'rooms',
     'gold',
-    '📣',
+    'laurel',
   ],
   [
     'ratio_d',
@@ -200,7 +200,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     "get your room quarantined. ratio'd into the shadow realm.",
     'rooms',
     'shame',
-    '🧂',
+    'laurel',
   ],
   [
     'necromancer',
@@ -208,7 +208,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'post in a room silent for 30 days. you woke the dead.',
     'rooms',
     'secret',
-    '🧟',
+    'laurel',
   ],
   [
     'respected',
@@ -216,7 +216,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'get 10 respects. some chuds actually like you.',
     'social',
     'bronze',
-    '🤝',
+    'heart',
   ],
   [
     'glazed',
@@ -224,7 +224,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'get 100 respects. fully glazed. wipe the screen.',
     'social',
     'gold',
-    '🍯',
+    'heart',
   ],
   [
     'clown_certified',
@@ -232,7 +232,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'get clown status. honk. you are the entertainment now.',
     'social',
     'shame',
-    '🤡',
+    'heart',
   ],
   [
     'admins_favourite',
@@ -240,7 +240,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'get admin glaze mode. the admins are in love. weird.',
     'social',
     'gold',
-    '💅',
+    'heart',
   ],
   [
     'first_warn',
@@ -248,7 +248,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'get your first warning. behave, little chud.',
     'moderation',
     'shame',
-    '⚠️',
+    'broken',
   ],
   [
     'cooked',
@@ -256,7 +256,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'autobanned. three strikes. fully cooked, no notes.',
     'moderation',
     'shame',
-    '🔥',
+    'broken',
   ],
   [
     'survivor',
@@ -264,7 +264,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'serve a ban and come back. the ban did not hold you.',
     'moderation',
     'silver',
-    '🛡️',
+    'broken',
   ],
   [
     'actually_went_touch_grass',
@@ -272,7 +272,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     "gone 7 days. grass reportedly touched. we don't believe you.",
     'moderation',
     'bronze',
-    '🌿',
+    'broken',
   ],
   [
     'first_rule',
@@ -280,7 +280,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'there are rules. you have not read the first one.',
     'secret',
     'secret',
-    '📜',
+    'eye',
   ],
   [
     'night_owl',
@@ -288,7 +288,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'something happens when the clock says 3. you were awake for it.',
     'secret',
     'secret',
-    '🦉',
+    'eye',
   ],
   [
     'appeal_denied',
@@ -296,7 +296,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
     'you asked for mercy many times. mercy said no.',
     'secret',
     'secret',
-    '⛔',
+    'eye',
   ],
 ].map(([key, name, description, category, tier, icon]) => ({
   key,
