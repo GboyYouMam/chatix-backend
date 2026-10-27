@@ -9,6 +9,7 @@ import {
   UploadedFiles,
   Patch,
   Headers,
+  Query,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -18,6 +19,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { RequestUser } from '../auth/dto/request-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateProfileCommentDto } from './dto/create-profile-comment.dto';
+import { ProfileCommentsQueryDto } from './dto/profile-comments-query.dto';
 import { PROFILE_IMAGE_POLICY } from '../storage/file-policy';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AchievementsService } from '../achievements/achievements.service';
@@ -57,8 +59,11 @@ export class UsersController {
   }
 
   @Get('profile/:username/comments')
-  async getProfileComments(@Param('username') username: string) {
-    return this.usersService.getProfileComments(username);
+  async getProfileComments(
+    @Param('username') username: string,
+    @Query() query: ProfileCommentsQueryDto,
+  ) {
+    return this.usersService.getProfileComments(username, query);
   }
 
   @Post('profile/:username/comments')

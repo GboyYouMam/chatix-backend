@@ -8,6 +8,7 @@ import { UpdateUserData, UsersRepository } from './users.repository';
 import { StorageService } from '../storage/storage.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ProfileFilesDTO } from './dto/profile-files.dto';
+import { ProfileCommentsQueryDto } from './dto/profile-comments-query.dto';
 import { assertAllowed, PROFILE_IMAGE_POLICY } from '../storage/file-policy';
 import { AchievementsService } from '../achievements/achievements.service';
 import {
@@ -212,13 +213,23 @@ export class UsersService {
     };
   }
 
-  async getProfileComments(username: string) {
+  async getProfileComments(username: string, query: ProfileCommentsQueryDto) {
     const user = await this.usersRepository.findPublicByUsername(username);
     if (!user) {
       throw new NotFoundException('This user not found ughhhh');
     }
 
-    return this.usersRepository.findProfileComments(user.id);
+    const { page, limit } = query;
+    const [items, total] = await Promise.all([
+      this.usersRepository.findProfileComments(
+        user.id,
+        limit,
+        (page - 1) * limit,
+      ),
+      this.usersRepository.countProfileComments(user.id),
+    ]);
+
+    return { items, page, limit, total };
   }
 
   async createProfileComment(username: string, authorId: string, body: string) {
