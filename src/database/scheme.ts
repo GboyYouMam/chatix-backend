@@ -79,6 +79,7 @@ export const users = pgTable('users', {
     .notNull(),
   stimulusStreak: integer('stimulus_streak').default(0).notNull(),
   lastStimulusAt: timestamp('last_stimulus_at', { withTimezone: true }),
+  ageConfirmedAt: timestamp('age_confirmed_at', { withTimezone: true }),
 });
 
 export const FightOutcome = pgEnum('fight_outcome', [
@@ -221,6 +222,8 @@ export const rooms = pgTable(
     boostedUntil: timestamp('boosted_until', { withTimezone: true }),
     spotlightMessageId: uuid('spotlight_message_id'),
     spotlightUntil: timestamp('spotlight_until', { withTimezone: true }),
+    category: varchar('category', { length: 24 }),
+    isNsfw: boolean('is_nsfw').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
