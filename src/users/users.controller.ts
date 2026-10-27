@@ -42,6 +42,11 @@ export class UsersController {
     return this.usersService.getUserProfile(user.userId, timezone);
   }
 
+  @Post('me/age-confirmation')
+  async confirmAge(@CurrentUser() user: RequestUser) {
+    return this.usersService.confirmAge(user.userId);
+  }
+
   @Patch('me/featured-achievements')
   async setFeaturedAchievements(
     @CurrentUser() user: RequestUser,

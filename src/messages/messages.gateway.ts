@@ -85,7 +85,7 @@ export class MessagesGateway
       await this.messagesService.assertCanAccess(payload.roomId, userId);
     } catch (error) {
       if (error instanceof HttpException) {
-        throw new WsException(error.message);
+        throw new WsException(error.getResponse());
       }
       throw error;
     }
