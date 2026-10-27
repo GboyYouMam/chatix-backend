@@ -101,7 +101,7 @@ export class RoomService {
       }
       throw error;
     }
-    return toPublicRoom(room);
+    return toPublicRoom(room, { userId: creatorId, role: 'user' });
   }
 
   async getLobbyRooms() {
