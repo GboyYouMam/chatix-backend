@@ -49,7 +49,15 @@ const TRADE_DRUGS = [
   'shrooms',
   'fentanyl',
 ];
-const TRADE_GUNS = ['gun', 'guns', 'pistol', 'pistols', 'glock', 'rifle', 'rifles'];
+const TRADE_GUNS = [
+  'gun',
+  'guns',
+  'pistol',
+  'pistols',
+  'glock',
+  'rifle',
+  'rifles',
+];
 
 const crossProduct = (verbs: string[], objects: string[]) =>
   verbs.flatMap((verb) => objects.map((object) => `${verb} ${object}`));

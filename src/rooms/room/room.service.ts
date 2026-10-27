@@ -13,6 +13,11 @@ import { RoomsRepository } from './rooms.repository';
 import { AchievementsService } from '../../achievements/achievements.service';
 import { AdminAuditContext } from '../../admin/audit-context';
 import { DEFAULT_ROOM_THEME } from './room-themes';
+import { classifyRoomText } from './room-content-filter';
+import { ConfigService } from '@nestjs/config';
+
+const AUTO_FILTER_REASON = (matched: string | null) =>
+  `auto-filter flagged "${matched}". a human will look at it.`;
 
 @Injectable()
 export class RoomService {
@@ -21,6 +26,7 @@ export class RoomService {
     private readonly realtime: RealtimeService,
     private readonly achievements: AchievementsService,
     private readonly auditContext: AdminAuditContext,
+    private readonly config: ConfigService,
   ) {}
 
   private isRoomNameConflict(error: unknown): boolean {
@@ -70,6 +76,10 @@ export class RoomService {
       );
     }
 
+    const verdict = classifyRoomText(data.title, data.topic, data.description);
+    const blocked = verdict.verdict === 'blocked';
+    const autoApprove = this.config.get<boolean>('ROOMS_AUTO_APPROVE') ?? true;
+
     let room;
     try {
       room = await this.roomsRepository.create({
@@ -78,6 +88,9 @@ export class RoomService {
           ? await bcrypt.hash(data.password, 10)
           : undefined,
         creatorId,
+        status: !blocked && autoApprove ? 'active' : 'checkout',
+        statusReason: blocked ? AUTO_FILTER_REASON(verdict.matched) : null,
+        isNsfw: data.isNsfw === true || verdict.verdict === 'mature',
       });
     } catch (error) {
       if (this.isRoomNameConflict(error)) {
@@ -120,6 +133,15 @@ export class RoomService {
       !(await this.roomsRepository.checkAccess(roomId, userId))
     ) {
       throw new ForbiddenException('private room. know the password or leave.');
+    }
+    if (
+      room.isNsfw &&
+      !(await this.roomsRepository.getUserAgeConfirmedAt(userId))
+    ) {
+      throw new ForbiddenException({
+        code: 'AGE_GATE',
+        message: "age gate: confirm you're 18+ first",
+      });
     }
   }
 
@@ -168,9 +190,24 @@ export class RoomService {
       );
     }
     await this.assertThemeUnlocked(userId, data.theme);
+
+    const stored = await this.roomsRepository.findById(roomId);
+    if (!stored) throw new NotFoundException('Room not found');
+    const verdict = classifyRoomText(
+      data.title ?? stored.title,
+      data.topic !== undefined ? data.topic : stored.topic,
+      data.description !== undefined ? data.description : stored.description,
+    );
+    const flaggedActive =
+      verdict.verdict === 'blocked' && stored.status === 'active';
     const update = {
       ...data,
       ...(data.password && { password: await bcrypt.hash(data.password, 10) }),
+      ...(flaggedActive && {
+        status: 'checkout' as const,
+        statusReason: AUTO_FILTER_REASON(verdict.matched),
+      }),
+      ...(verdict.verdict === 'mature' && { isNsfw: true }),
     };
     try {
       return toPublicRoom(

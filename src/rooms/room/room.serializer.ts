@@ -21,6 +21,8 @@ export function toPublicRoom<
     quarantineReason?: string | null;
     statusReason?: string | null;
     creatorId?: string;
+    category?: string | null;
+    isNsfw?: boolean;
   } & RoomPerkFields,
 >(room: T, viewer?: { userId: string; role: string }) {
   const {
@@ -56,6 +58,8 @@ export function toPublicRoom<
   const result = {
     ...data,
     theme: room.theme ?? 'basement',
+    category: room.category ?? null,
+    isNsfw: Boolean(room.isNsfw),
     hasPassword: Boolean(password),
     sponsoredBy,
     boostedUntil: isLive(boostedUntil) ? boostedUntil : null,

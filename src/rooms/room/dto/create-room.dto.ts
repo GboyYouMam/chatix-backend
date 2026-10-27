@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -7,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ROOM_THEMES } from '../room-themes';
+import { ROOM_CATEGORIES, RoomCategory } from '../room-categories';
 
 export class CreateRoomDTO {
   @IsString({ message: 'Title must be a string' })
@@ -38,4 +40,12 @@ export class CreateRoomDTO {
   @IsOptional()
   @IsIn([...ROOM_THEMES], { message: 'no such theme, chud.' })
   theme?: string;
+
+  @IsOptional()
+  @IsIn([...ROOM_CATEGORIES], { message: 'no such category, chud.' })
+  category?: RoomCategory | null;
+
+  @IsOptional()
+  @IsBoolean({ message: 'isNsfw must be a boolean' })
+  isNsfw?: boolean;
 }
