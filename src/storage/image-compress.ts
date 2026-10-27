@@ -1,5 +1,9 @@
 import sharp from 'sharp';
 
+// Render free tier has 512 MB; keep sharp lean
+sharp.cache(false);
+sharp.concurrency(1);
+
 const compressible = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 export async function compressImage(
@@ -10,7 +14,11 @@ export async function compressImage(
   const input = { buffer, ext: detected.ext, mime: detected.mime };
   if (!compressible.has(detected.mime)) return input;
   try {
-    const out = await sharp(buffer, { failOn: 'none' })
+    const out = await sharp(buffer, {
+      failOn: 'none',
+      animated: true,
+      limitInputPixels: 40_000_000,
+    })
       .rotate()
       .resize({
         width: maxSide,
