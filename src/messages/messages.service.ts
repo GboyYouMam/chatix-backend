@@ -117,17 +117,17 @@ export class MessagesService {
       const attachments: MessageAttachmentInput[] = [];
       for (const file of files) {
         const detected = await assertAllowed(file, MESSAGE_ATTACHMENT_POLICY);
-        const url = await this.storageService.upload(
+        const stored = await this.storageService.upload(
           file,
           detected,
           'attachments',
         );
-        uploadedUrls.push(url);
+        uploadedUrls.push(stored.url);
         attachments.push({
-          url,
+          url: stored.url,
           fileName: file.originalname,
-          mimeType: detected.mime,
-          size: file.size,
+          mimeType: stored.mime,
+          size: stored.size,
         });
       }
       const roomWasQuiet = await this.messagesRepository.wasRoomSilentFor(

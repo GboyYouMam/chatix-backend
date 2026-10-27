@@ -49,7 +49,8 @@
     "postgres": "^3.4.9",
     "proxy-addr": "2.0.8",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

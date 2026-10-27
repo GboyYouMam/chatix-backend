@@ -6,6 +6,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
 import { randomUUID } from 'node:crypto';
+import { compressImage } from './image-compress';
+
+export type StoredFile = { url: string; mime: string; size: number };
 
 @Injectable()
 export class StorageService {
@@ -62,24 +65,33 @@ export class StorageService {
     file: Express.Multer.File,
     detected: { ext: string; mime: string },
     folder: 'profiles' | 'attachments',
-  ): Promise<string> {
+  ): Promise<StoredFile> {
+    const stored = await compressImage(
+      file.buffer,
+      detected,
+      folder === 'profiles' ? 1600 : 2048,
+    );
     try {
-      const fileName = `${folder}/${randomUUID()}.${detected.ext}`;
+      const fileName = `${folder}/${randomUUID()}.${stored.ext}`;
 
       await this.minioClient.putObject(
         this.bucketName,
         fileName,
-        file.buffer,
-        file.size,
+        stored.buffer,
+        stored.buffer.length,
         {
-          'Content-Type': detected.mime,
-          ...(/^(image|video|audio)\//.test(detected.mime)
+          'Content-Type': stored.mime,
+          ...(/^(image|video|audio)\//.test(stored.mime)
             ? {}
             : { 'Content-Disposition': 'attachment' }),
         },
       );
 
-      return this.buildFileUrl(fileName);
+      return {
+        url: this.buildFileUrl(fileName),
+        mime: stored.mime,
+        size: stored.buffer.length,
+      };
     } catch (error) {
       this.logger.error('error while uploading to MinIO', error);
       throw new InternalServerErrorException('Cannot save this file lmao');
