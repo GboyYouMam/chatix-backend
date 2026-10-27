@@ -25,6 +25,8 @@ export async function createTestApp(): Promise<{
   if (!url) throw new Error('DATABASE_URL_TEST is required to run e2e tests');
   process.env.DATABASE_URL = url;
   process.env.TRUST_PROXY ??= '1';
+  // The suites expect new rooms to wait in checkout for an admin.
+  process.env.ROOMS_AUTO_APPROVE = 'false';
   const connection = postgres(url);
   const db = drizzle(connection, { schema });
   await migrate(db, { migrationsFolder: './drizzle' });

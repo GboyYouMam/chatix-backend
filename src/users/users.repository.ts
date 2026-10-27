@@ -51,6 +51,18 @@ export class UsersRepository {
     });
   }
 
+  // Keeps the first confirmation time; repeated calls change nothing.
+  async confirmAge(userId: string) {
+    const [row] = await this.db
+      .update(scheme.users)
+      .set({
+        ageConfirmedAt: sql`coalesce(${scheme.users.ageConfirmedAt}, now())`,
+      })
+      .where(eq(scheme.users.id, userId))
+      .returning({ ageConfirmedAt: scheme.users.ageConfirmedAt });
+    return row;
+  }
+
   async findPublicByUsername(username: string) {
     return this.db.query.users.findFirst({
       where: eq(scheme.users.username, username),

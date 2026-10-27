@@ -42,6 +42,7 @@ export class UsersService {
     const achievements = await this.usersRepository.findAchievements(userId);
     return {
       ...user,
+      ageConfirmed: user.ageConfirmedAt != null,
       achievements: achievements.map(({ key, unlockedAt }) => ({
         key,
         unlockedAt,
@@ -54,6 +55,13 @@ export class UsersService {
       respectCount,
       respect_count: respectCount,
     };
+  }
+
+  async confirmAge(userId: string) {
+    const user = await this.usersRepository.confirmAge(userId);
+    if (!user)
+      throw new NotFoundException('no such chud. touch grass and try again.');
+    return { ageConfirmed: true };
   }
 
   private isTimezone(value: string) {

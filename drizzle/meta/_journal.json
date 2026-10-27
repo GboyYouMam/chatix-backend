@@ -141,6 +141,13 @@
       "when": 1793059961891,
       "tag": "0019_remove_stickers",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793134352784,
+      "tag": "0020_rooms_categories_nsfw_age_gate",
+      "breakpoints": true
     }
   ]
 }

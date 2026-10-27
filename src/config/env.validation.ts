@@ -47,6 +47,11 @@ class EnvConfig {
   @IsBoolean()
   MINIO_PUBLIC_URL_HAS_BUCKET = false;
   @IsOptional() @IsString() MINIO_REGION?: string;
+  @Transform(({ value }) =>
+    value === undefined || value === '' ? true : value === true || value === 'true',
+  )
+  @IsBoolean()
+  ROOMS_AUTO_APPROVE = true;
 }
 
 export type EnvConfigValues = InstanceType<typeof EnvConfig>;

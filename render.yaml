@@ -41,3 +41,5 @@ services:
         sync: false
       - key: MINIO_PUBLIC_URL
         sync: false
+      - key: ROOMS_AUTO_APPROVE
+        value: "true"

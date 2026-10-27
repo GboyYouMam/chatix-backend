@@ -4,6 +4,9 @@ import { DB_CONNECTION } from '../../database/database.module';
 import * as scheme from '../../database/scheme';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { CreateRoomDTO } from './dto/create-room.dto';
+import { RoomCategory } from './room-categories';
+
+type RoomStatus = 'active' | 'checkout' | 'banned' | 'quarantined';
 
 export const CREATOR_COLUMNS = {
   id: true,
@@ -45,6 +48,10 @@ export class RoomsRepository {
     publicity: 'public' | 'private';
     password?: string;
     theme?: string;
+    category?: RoomCategory | null;
+    isNsfw: boolean;
+    status: RoomStatus;
+    statusReason?: string | null;
   }) {
     const [newRoom] = await this.db
       .insert(scheme.rooms)
@@ -56,6 +63,10 @@ export class RoomsRepository {
         publicity: data.publicity,
         password: data.password,
         theme: data.theme,
+        category: data.category,
+        isNsfw: data.isNsfw,
+        status: data.status,
+        statusReason: data.statusReason,
       })
       .returning();
 
@@ -170,7 +181,14 @@ export class RoomsRepository {
     return this.reload(roomId);
   }
 
-  async updateRoom(roomId: string, data: Partial<CreateRoomDTO>) {
+  async updateRoom(
+    roomId: string,
+    data: Partial<CreateRoomDTO> & {
+      status?: RoomStatus;
+      statusReason?: string | null;
+      isNsfw?: boolean;
+    },
+  ) {
     await this.db
       .update(scheme.rooms)
       .set({
@@ -180,10 +198,22 @@ export class RoomsRepository {
         publicity: data.publicity,
         password: data.publicity === 'public' ? null : data.password,
         theme: data.theme,
+        category: data.category,
+        isNsfw: data.isNsfw,
+        status: data.status,
+        statusReason: data.statusReason,
       })
       .where(eq(scheme.rooms.id, roomId))
       .returning();
     return this.reload(roomId);
+  }
+
+  async getUserAgeConfirmedAt(userId: string) {
+    const row = await this.db.query.users.findFirst({
+      where: eq(scheme.users.id, userId),
+      columns: { ageConfirmedAt: true },
+    });
+    return row?.ageConfirmedAt ?? null;
   }
 
   async ownsItem(userId: string, itemKey: string) {
