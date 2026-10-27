@@ -16,9 +16,7 @@ export interface PublicCosmetics {
   nameColor: string | null;
   nameIcon: string | null;
   quoteStyle: string | null;
-  nyanCat: boolean;
   verified: boolean;
-  stickers: [string | null, string | null, string | null];
   vineBoom: boolean;
 }
 
@@ -45,9 +43,7 @@ export function toPublicCosmetics(
     nameColor: paletteHex(equipped.nameColor, 'namecolor_'),
     nameIcon: equipped.nameIcon,
     quoteStyle: equipped.quoteStyle,
-    nyanCat: equipped.nyanCat,
     verified: equipped.verified,
-    stickers: equipped.stickers,
     vineBoom: ownsVineBoom,
   };
 }

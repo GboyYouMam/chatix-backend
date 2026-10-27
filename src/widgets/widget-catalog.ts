@@ -1,5 +1,3 @@
-import { SHOP_ITEMS } from '../shop/catalog';
-
 export const WIDGET_KEYS = [
   'now_playing',
   'medal_rack',
@@ -12,7 +10,6 @@ export const WIDGET_KEYS = [
   'status_line',
   'rap_sheet',
   'hit_counter',
-  'sticker_board',
   'wanted_poster',
 ] as const;
 
@@ -34,9 +31,6 @@ export const WIDGET_UNLOCK_ITEMS: Partial<
   Record<WidgetKey, readonly string[]>
 > = {
   hit_counter: ['hit_counter'],
-  sticker_board: SHOP_ITEMS.filter((item) =>
-    item.key.startsWith('sticker_'),
-  ).map((item) => item.key),
 };
 
 export const MAX_WIDGET_LAYOUT = WIDGET_KEYS.length;

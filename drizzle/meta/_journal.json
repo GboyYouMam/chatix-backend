@@ -134,6 +134,13 @@
       "when": 1793058287349,
       "tag": "0018_stimulus",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793059961891,
+      "tag": "0019_remove_stickers",
+      "breakpoints": true
     }
   ]
 }
