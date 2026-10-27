@@ -12,7 +12,7 @@ export class RegisterDto {
   @IsString()
   @Matches(PASSWORD_REGEX, {
     message:
-      'password too weak: 8+ chars with upper, lower, digit and one of @$!%*?&',
+      'password too weak: 8-72 chars, no spaces, with upper, lower, digit and a symbol',
   })
   password!: string;
 }
