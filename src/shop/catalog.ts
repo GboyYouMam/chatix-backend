@@ -299,7 +299,7 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
   troll(
     'rename_curse',
     'rename curse',
-    'their name gets "(he/him/it/mogged)" for 1 h. sorry not sorry.',
+    'their name gets "(certified npc)" for 1 h. sorry not sorry.',
     150,
   ),
   troll(
