@@ -20,6 +20,7 @@ export class StorageService {
       useSSL: this.configService.get<boolean>('MINIO_USE_SSL') ?? false,
       accessKey: this.configService.getOrThrow<string>('MINIO_ACCESS_KEY'),
       secretKey: this.configService.getOrThrow<string>('MINIO_SECRET_KEY'),
+      region: this.configService.get<string>('MINIO_REGION') || undefined,
     });
     this.bucketName =
       this.configService.getOrThrow<string>('MINIO_BUCKET_NAME');
@@ -51,7 +52,10 @@ export class StorageService {
 
   private buildFileUrl(fileName: string): string {
     const publicUrl = this.configService.getOrThrow<string>('MINIO_PUBLIC_URL');
-    return `${publicUrl}/${this.bucketName}/${fileName}`;
+    // R2 (r2.dev / custom domain) public URLs already point at the bucket root
+    return this.configService.get<boolean>('MINIO_PUBLIC_URL_HAS_BUCKET')
+      ? `${publicUrl}/${fileName}`
+      : `${publicUrl}/${this.bucketName}/${fileName}`;
   }
 
   async upload(
@@ -83,6 +87,14 @@ export class StorageService {
   }
 
   async removeUploadedFile(fileUrl: string): Promise<void> {
+    const base = this.buildFileUrl('');
+    if (fileUrl.startsWith(base)) {
+      await this.minioClient.removeObject(
+        this.bucketName,
+        fileUrl.slice(base.length),
+      );
+      return;
+    }
     const segments = new URL(fileUrl).pathname.split('/').filter(Boolean);
     const bucketIndex = segments.indexOf(this.bucketName);
     if (bucketIndex < 0)
