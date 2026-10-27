@@ -43,6 +43,10 @@ class EnvConfig {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   MINIO_USE_SSL = false;
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  MINIO_PUBLIC_URL_HAS_BUCKET = false;
+  @IsOptional() @IsString() MINIO_REGION?: string;
 }
 
 export type EnvConfigValues = InstanceType<typeof EnvConfig>;
