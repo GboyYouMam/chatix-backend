@@ -105,44 +105,48 @@ export class UsersService {
           files.file[0],
           PROFILE_IMAGE_POLICY,
         );
-        updatePayload.pfp_url = await this.storageService.upload(
-          files.file[0],
-          detected,
-          'profiles',
-        );
+        updatePayload.pfp_url = (
+          await this.storageService.upload(files.file[0], detected, 'profiles')
+        ).url;
       }
       if (files.upper_banner && files.upper_banner.length > 0) {
         const detected = await assertAllowed(
           files.upper_banner[0],
           PROFILE_IMAGE_POLICY,
         );
-        updatePayload.upper_banner_url = await this.storageService.upload(
-          files.upper_banner[0],
-          detected,
-          'profiles',
-        );
+        updatePayload.upper_banner_url = (
+          await this.storageService.upload(
+            files.upper_banner[0],
+            detected,
+            'profiles',
+          )
+        ).url;
       }
       if (files.left_banner && files.left_banner.length > 0) {
         const detected = await assertAllowed(
           files.left_banner[0],
           PROFILE_IMAGE_POLICY,
         );
-        updatePayload.left_banner_url = await this.storageService.upload(
-          files.left_banner[0],
-          detected,
-          'profiles',
-        );
+        updatePayload.left_banner_url = (
+          await this.storageService.upload(
+            files.left_banner[0],
+            detected,
+            'profiles',
+          )
+        ).url;
       }
       if (files.right_banner && files.right_banner.length > 0) {
         const detected = await assertAllowed(
           files.right_banner[0],
           PROFILE_IMAGE_POLICY,
         );
-        updatePayload.right_banner_url = await this.storageService.upload(
-          files.right_banner[0],
-          detected,
-          'profiles',
-        );
+        updatePayload.right_banner_url = (
+          await this.storageService.upload(
+            files.right_banner[0],
+            detected,
+            'profiles',
+          )
+        ).url;
       }
     }
 
